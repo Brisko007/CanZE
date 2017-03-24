@@ -21,56 +21,56 @@
 
 package lu.fisch.canze.activities;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Base64;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
 import lu.fisch.canze.bluetooth.BluetoothManager;
 import lu.fisch.canze.interfaces.FieldListener;
-import lu.fisch.canze.widgets.Drawable;
 import lu.fisch.canze.widgets.WidgetView;
 
 /**
  * Created by robertfisch on 30.09.2015.
  */
-public class CanzeActivity extends AppCompatActivity implements FieldListener {
+public abstract class CanzeActivity extends AppCompatActivity implements FieldListener {
 
     private boolean iLeftMyOwn = false;
     private boolean back = false;
 
     protected boolean widgetView = false;
+
+    public void setWidgetClicked(boolean widgetClicked) {
+        this.widgetClicked = widgetClicked;
+    }
+
     protected boolean widgetClicked = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+
         if(MainActivity.device!=null)
-            if(!BluetoothManager.getInstance().isConnected())
+            if(!BluetoothManager.getInstance().isConnected()) {
                 // restart Bluetooth
+                MainActivity.debug("CanzeActivity: restarting BT");
                 BluetoothManager.getInstance().connect();
+            }
         MainActivity.debug("CanzeActivity: onCreate ("+this.getClass().getSimpleName()+")");
-        if(!widgetView) {
+        //if(!widgetView) {
             // register all fields
             // --> not needed as these frames are now application bound and will not be cleared anyway
             // MainActivity.registerFields();
             // initialise the widgets (if any present)
             // --> not needed as onResume will call it!
             //initWidgets();
-        }
+        //}
     }
 
     @Override
@@ -93,6 +93,8 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
             // remember we paused ourselves
             iLeftMyOwn=true;
         }
+        removeFieldListeners();
+        MainActivity.getInstance().setDebugListener(null);
     }
 
     @Override
@@ -104,14 +106,19 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
             MainActivity.debug("CanzeActivity: onResume > reloadBluetooth");
             // restart Bluetooth
             MainActivity.getInstance().reloadBluetooth(false);
-            iLeftMyOwn=false;
+            iLeftMyOwn = false;
         }
+
+        if(BluetoothManager.getInstance().isDummyMode())
+            MainActivity.device.initConnection();
+
         if(!widgetClicked) {
             MainActivity.debug("CanzeActivity: onResume > initWidgets");
             // initialise the widgets (if any present)
             initWidgets();
         }
         widgetClicked=false;
+        initListeners();
     }
 
     @Override
@@ -146,7 +153,7 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
     {
         final ArrayList<WidgetView> widgets = getWidgetViewArrayList((ViewGroup) findViewById(android.R.id.content));
         if(!widgets.isEmpty())
-            MainActivity.toast("Initialising widgets and loading data ...");
+            MainActivity.toast(R.string.toast_InitWidgets);
 
         new Thread(new Runnable() {
             @Override
@@ -160,6 +167,8 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
                     if (wv == null) {
                         throw new ExceptionInInitializerError("CanzeActivity: initWidgets: Widget <" + i + "> is NULL!");
                     }
+
+                    wv.setCanzeActivity(CanzeActivity.this);
 
                     MainActivity.debug("CanzeActivity: initWidgets: Widget: " + wv.getDrawable().getTitle() + " ("+wv.getFieldSID()+")");
                 }
@@ -176,8 +185,8 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
             String sid = wv.getFieldSID();
             if(sid!=null) {
                 String[] sids = sid.split(",");
-                for (int s = 0; s < sids.length; s++) {
-                    Field field = MainActivity.fields.getBySID(sids[s]);
+                for (String sid1 : sids) {
+                    Field field = MainActivity.fields.getBySID(sid1);
                     if (field != null) {
                         field.removeListener(wv.getDrawable());
                     }
@@ -189,7 +198,7 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
 
     protected ArrayList<WidgetView> getWidgetViewArrayList(ViewGroup viewGroup)
     {
-        ArrayList<WidgetView> result = new ArrayList<WidgetView>();
+        ArrayList<WidgetView> result = new ArrayList<>();
 
         if(viewGroup!=null)
         for (int i = 0; i < viewGroup.getChildCount(); i++) {
@@ -236,7 +245,11 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
 
     /******* activity field stuff ********************/
 
-    protected ArrayList<Field> subscribedFields = new ArrayList<>();;
+    protected ArrayList<Field> subscribedFields = new ArrayList<>();
+
+    protected void addField(String sid) {
+        addField(sid, 0);
+    }
 
     protected void addField(String sid, int intervalMs)
     {
@@ -265,9 +278,21 @@ public class CanzeActivity extends AppCompatActivity implements FieldListener {
         subscribedFields.clear();
     }
 
+    public void dropDebugMessage (final String msg) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                TextView tv = (TextView) findViewById(R.id.textDebug);
+                if (tv != null) tv.setText(msg);
+            }
+        });
+    }
+
     @Override
     public void onFieldUpdateEvent(Field field) {
         // empty --> descents should override this
     }
+
+    protected abstract void initListeners();
 }
 

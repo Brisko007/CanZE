@@ -24,16 +24,17 @@ package lu.fisch.canze.activities;
 import android.os.Bundle;
 import android.widget.TextView;
 
-import java.util.ArrayList;
+import java.util.Locale;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
 
 /**
  * Heatmap by jeroen on 27-10-15.
  */
-public class HeatmapBatcompActivity extends CanzeActivity implements FieldListener {
+public class HeatmapBatcompActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     public static final String SID_Preamble_CompartmentTemperatures = "7bb.6104."; // (LBC)
 
@@ -41,62 +42,21 @@ public class HeatmapBatcompActivity extends CanzeActivity implements FieldListen
     private double lastVal [] = {0,15,15,15,15,15,15,15,15,15,15,15,15};
     private int lastCell = 4;
 
-    private ArrayList<Field> subscribedFields;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(MainActivity.car == MainActivity.CAR_ZOE ? R.layout.activity_heatmap_batcomp : R.layout.activity_heatmap_batcomp2);
+        setContentView(MainActivity.isZOE() ? R.layout.activity_heatmap_batcomp : R.layout.activity_heatmap_batcomp2);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // initialise the widgets
-        initListeners();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        removeListeners ();
-    }
-
-    private void initListeners() {
-        subscribedFields = new ArrayList<>();
-        if(MainActivity.car == MainActivity.CAR_ZOE) {
+    protected void initListeners() {
+        MainActivity.getInstance().setDebugListener(this);
+        if(MainActivity.isZOE()) {
             lastCell = 12;
         }
         for (int i = 1; i <= lastCell; i++) {
             String sid = SID_Preamble_CompartmentTemperatures + (8 + i * 24); // remember, first is pos 32, i starts s at 1
-            addListener(sid);
+            addField(sid);
         }
-    }
-
-    private void removeListeners () {
-        // empty the query loop
-        MainActivity.device.clearFields();
-        // free up the listeners again
-        for (Field field : subscribedFields) {
-            field.removeListener(this);
-        }
-        subscribedFields.clear();
-    }
-
-    private void addListener(String sid) {
-        Field field;
-        field = MainActivity.fields.getBySID(sid);
-        if (field != null) {
-            // activate callback to this object when a value is updated
-            field.addListener(this);
-            // add querying this field in the queryloop
-            MainActivity.device.addActivityField(field);
-            subscribedFields.add(field);
-        } else {
-            MainActivity.toast("sid " + sid + " does not exist in class Fields");
-        }
-
     }
 
     // This is the event fired as soon as this the registered fields are
@@ -110,15 +70,6 @@ public class HeatmapBatcompActivity extends CanzeActivity implements FieldListen
         if (fieldId.startsWith(SID_Preamble_CompartmentTemperatures)) {
             int cell = (Integer.parseInt(fieldId.split("[.]")[2]) - 8) / 24; // cell is 1-based
             final double value = field.getValue();
-
-            runOnUiThread(new Runnable() {
-                              @Override
-                              public void run() {
-                                  TextView tv = (TextView) findViewById(R.id.textDebug);
-                                  tv.setText(fieldId + ":" + value);
-                              }
-                          });
-
             lastVal[cell] = value;
             // calculate the mean value of the previous full round
             if (cell == lastCell) {
@@ -129,14 +80,15 @@ public class HeatmapBatcompActivity extends CanzeActivity implements FieldListen
                 mean /= lastCell;
 
                 // the update has to be done in a separate thread
-                // otherwise the UI will not be repainted doing that here only when the entire temperature buls is (supposed to be) in,
+                // otherwise the UI will not be repainted doing that here only when the entire temperature array is (supposed to be) in,
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         for (int i = 1; i <= lastCell; i++) {
                             TextView tv = (TextView) findViewById(getResources().getIdentifier("text_comp_" + i + "_temp", "id", getPackageName()));
                             if (tv != null) {
-                                tv.setText("" + lastVal[i]);
+                                // tv.setText("" + lastVal[i]);
+                                tv.setText(String.format(Locale.getDefault(), "%.0f", lastVal[i]));
                                 int color = (int) (50 * (lastVal[i] - mean)); // color is temp minus mean
                                 if (color > 62) {
                                     color = 0xffffc0c0;

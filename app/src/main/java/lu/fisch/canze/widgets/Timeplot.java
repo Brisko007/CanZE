@@ -21,14 +21,9 @@
 
 package lu.fisch.canze.widgets;
 
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.Shader;
-
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
-import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,7 +38,6 @@ import lu.fisch.canze.actors.Field;
 import lu.fisch.canze.actors.Fields;
 import lu.fisch.canze.classes.TimePoint;
 import lu.fisch.canze.database.CanzeDataSource;
-import lu.fisch.canze.fragments.MainFragment;
 import lu.fisch.canze.interfaces.DrawSurfaceInterface;
 
 /**
@@ -53,6 +47,8 @@ import lu.fisch.canze.interfaces.DrawSurfaceInterface;
 public class Timeplot extends Drawable {
 
     protected HashMap<String,ArrayList<TimePoint>> values = new HashMap<>();
+
+    private boolean backward = true;
 
     public Timeplot() {
         super();
@@ -115,7 +111,8 @@ public class Timeplot extends Drawable {
         int barWidth = width-Math.max(g.stringWidth(min+""),g.stringWidth(max+""))-10-10;
         int spaceAlt = Math.max(g.stringWidth(minAlt+""),g.stringWidth(maxAlt+""))+10+10;
         // reduce with if second y-axe is used
-        if (minAlt==-1 && maxAlt==-1)
+        //MainActivity.debug("Alt: "+minAlt+" - "+maxAlt);
+        if (minAlt==0 && maxAlt==0)
         {
             spaceAlt=0;
         }
@@ -125,11 +122,13 @@ public class Timeplot extends Drawable {
         int graphHeight = height-g.stringHeight(sdf.format(Calendar.getInstance().getTime()))-5;
 
         // draw the ticks
+        double realMaxAlt=getMaxAlt();
         if(minorTicks>0 || majorTicks>0)
         {
             int toTicks = minorTicks;
             if(toTicks==0) toTicks=majorTicks;
-            double accel = (double)graphHeight/((max-min)/(double)toTicks);
+            double intervals = ((max-min)/(double)toTicks);
+            double accel = (double)graphHeight/intervals;
             double ax,ay,bx=0,by=0;
             int actual = min;
             int actualAlt = minAlt;
@@ -203,20 +202,60 @@ public class Timeplot extends Drawable {
                     }
 
                     actual+=majorTicks;
-                    actualAlt+=(maxAlt-minAlt)/((max-min)/majorTicks);
+                    actualAlt+= Math.round((double) (maxAlt - minAlt) / (max - min) * majorTicks);
                 }
                 sum+=minorTicks;
             }
+            // calculate real max alt
+            double altTicks = Math.round((double) (maxAlt - minAlt) / (max - min) * majorTicks)/((double)majorTicks/toTicks);
+            realMaxAlt=intervals*altTicks+getMinAlt();
         }
 
-        // draw the horizontal grid
+        // draw the vertical grid
         g.setColor(getIntermediate());
         long start = Calendar.getInstance().getTimeInMillis()/1000;
         int interval = 60/timeSale;
-        for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
+
+        try
         {
-            g.drawLine(x, 1, x, graphHeight + 5);
+            if(backward)
+            {
+                ArrayList<TimePoint> list = this.values.get(sids.get(0));
+                start = list.get(list.size()-1).date;
+                for(int s=0; s<sids.size(); s++) {
+                    list = this.values.get(sids.get(s));
+                    long thisDate = list.get(list.size()-1).date;
+                    if(thisDate>start) start=thisDate;
+                }
+                //MainActivity.debug("Start: "+sdf.format(start));
+                for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
+                {
+                    g.drawLine(x, 1, x, graphHeight + 5);
+                }
+            }
+            else
+            {
+                ArrayList<TimePoint> list = this.values.get(sids.get(0));
+                start = list.get(0).date;
+                for(int s=0; s<sids.size(); s++) {
+                    list = this.values.get(sids.get(s));
+                    long thisDate = list.get(0).date;
+                    if(thisDate<start) start=thisDate;
+                }
+                for(long x=width-barWidth-spaceAlt; x<width-spaceAlt; x+=interval)
+                {
+                    g.drawLine(x, 1, x, graphHeight + 5);
+                }
+            }
         }
+        catch(Exception e) {
+            //MainActivity.debug("Exception: "+e.getMessage());
+            for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
+            {
+                g.drawLine(x, 1, x, graphHeight + 5);
+            }
+        }
+
 
         // draw the graph
         for(int s=0; s<sids.size(); s++) {
@@ -234,113 +273,247 @@ public class Timeplot extends Drawable {
             if (values.size() > 0) {
 
                 double w = (double) barWidth / values.size();
-                double h = (double) graphHeight / (getMax() - getMin() + 1);
-                double hAlt = (double) graphHeight / (getMaxAlt() - getMinAlt() + 1);
+                double h = (double) graphHeight / (getMax() - getMin());
+                double hAlt = (double) graphHeight / (realMaxAlt - getMinAlt());
 
                 double lastX = Double.NaN;
                 double lastY = Double.NaN;
                 g.setColor(getColor(s));
 
-                long maxTime = values.get(values.size() - 1).date;
+                if(isBackward())
+                {
 
-                for (int i = values.size() - 1; i >= 0; i--) {
-                    TimePoint tp = values.get(i);
+                    long maxTime = start; //values.get(values.size() - 1).date;
 
-                    if(tp!=null) {
-                        g.setColor(colorRanges.getColor(sid, tp.value, getColor(s)));
+                    for (int i = values.size() - 1; i >= 0; i--) {
+                        TimePoint tp = values.get(i);
 
-                        double mx = barWidth - ((maxTime - tp.date)/timeSale / 1000);
+                        if (tp != null) {
+                            g.setColor(colorRanges.getColor(sid, tp.value, getColor(s)));
 
-                        if (mx < 0) {
-                            values.remove(i);
-                        } else {
-                            double my = graphHeight - (tp.value - min) * h;
-                            double zy = graphHeight - (0 - min) * h;
+                            double mx = barWidth - ((maxTime - tp.date) / timeSale / 1000);
 
-                            // draw on alternate scale if requested
-                            if(getOptions().getOption(sid)!=null &&
-                                    getOptions().getOption(sid).contains("alt")) {
-                                my = graphHeight - (tp.value - minAlt) * hAlt;
-                                zy = graphHeight - (0 - minAlt) * hAlt;
-                            }
+                            if (mx < 0) {
+                                values.remove(i);
+                            } else {
+                                // determine Y
+                                double my;
+                                // distinct "alt" vs "normal"
+                                if (getOptions().getOption(sid) != null &&
+                                        getOptions().getOption(sid).contains("alt"))
+                                    my = graphHeight - (tp.value - minAlt) * hAlt;
+                                else
+                                    my = graphHeight - (tp.value - min) * h;
 
-                            int rayon = 2;
+                                // check if y should be fixed: colorline[value-of-y]
+                                if ((getOptions().getOption(sid) != null &&
+                                        !getOptions().getOption(sid).isEmpty() &&
+                                        getOptions().getOption(sid).contains("colorline"))) {
 
-                            //MainActivity.debug("HERE: "+sid+" / "+getOptions().getOption(sid));
-
-                            if(getOptions().getOption(sid)==null ||
-                                    (getOptions().getOption(sid)!=null &&
-                                            (getOptions().getOption(sid).isEmpty() || getOptions().getOption(sid).contains("dot")))) {
-                                g.fillOval(getX() + getWidth() - barWidth + (int) mx - rayon - spaceAlt,
-                                        getY() + (int) my - rayon,
-                                        2 * rayon + 1,
-                                        2 * rayon + 1);
-                            }
-                            /*else {
-                                g.drawLine(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
-                                        getY() + (int) my,
-                                        getX() + getWidth() - barWidth + (int) mx - spaceAlt,
-                                        getY() + (int) zy);
-                            }*/
-                            if (i < values.size() - 1) {
-                                if(getOptions().getOption(sid)!=null &&
-                                        getOptions().getOption(sid).contains("full")) {
-                                    Polygon p = new Polygon();
-                                    p.addPoint(getX() + getWidth() - barWidth + (int) lastX-spaceAlt,
-                                            getY() + (int) lastY);
-                                    p.addPoint(getX() + getWidth() - barWidth + (int) mx-spaceAlt,
-                                            getY() + (int) my);
-                                    p.addPoint(getX() + getWidth() - barWidth + (int) mx-spaceAlt,
-                                            (int) (getY() + zy));
-                                    p.addPoint(getX() + getWidth() - barWidth + (int) lastX-spaceAlt,
-                                            (int) (getY() + zy));
-                                    g.fillPolygon(p);
+                                    // parse out position of line
+                                    String options = getOptions().getOption(sid);
+                                    int index = options.indexOf("colorline");
+                                    index += ("colorline").length() + 1;
+                                    String value = "";
+                                    while (index < options.length() && options.charAt(index) != ']') {
+                                        value += options.charAt(index);
+                                        index++;
+                                    }
+                                    if (getOptions().getOption(sid) != null &&
+                                            getOptions().getOption(sid).contains("alt"))
+                                        my = graphHeight - (Double.valueOf(value) - minAlt) * hAlt;
+                                    else
+                                        my = graphHeight - (Double.valueOf(value) - min) * h;
                                 }
-                                else if(getOptions().getOption(sid)!=null &&
-                                        getOptions().getOption(sid).contains("gradient")) {
 
-                                    if(i<values.size() && values.get(i+1)!=null) {
-                                        Polygon p = new Polygon();
-                                        p.addPoint(getX() + getWidth() - barWidth + (int) lastX-spaceAlt,
-                                                getY() + (int) lastY);
-                                        p.addPoint(getX() + getWidth() - barWidth + (int) mx-spaceAlt,
-                                                getY() + (int) my);
-                                        p.addPoint(getX() + getWidth() - barWidth + (int) mx-spaceAlt,
-                                                (int) (getY() + zy));
-                                        p.addPoint(getX() + getWidth() - barWidth + (int) lastX-spaceAlt,
-                                                (int) (getY() + zy));
+                                // now get ZY
+                                double zy;
+                                if (getOptions().getOption(sid) != null &&
+                                        getOptions().getOption(sid).contains("alt"))
+                                    zy = graphHeight - (0 - minAlt) * hAlt;
+                                else
+                                    zy = graphHeight - (0 - min) * h;
 
-                                        /*if ((values.get(i + 1).value > 0 && tp.value > 0) || (values.get(i + 1).value < 0 && tp.value < 0)) {
-                                            if (tp.value > 0)
-                                                g.fillPolygon(p, 0, (int) zy, 0, 0, colorRanges.getColors(sid, tp.value > 0), colorRanges.getSpacings(sid, 0, max, tp.value > 0));
-                                            else
-                                                g.fillPolygon(p, 0, graphHeight, 0, (int) zy, colorRanges.getColors(sid, tp.value > 0), colorRanges.getSpacings(sid, min, 0, tp.value > 0));
+                                int rayon = 2;
+
+                                //MainActivity.debug("HERE: "+sid+" / "+getOptions().getOption(sid));
+
+                                if (getOptions().getOption(sid) == null ||
+                                        (getOptions().getOption(sid) != null &&
+                                                (getOptions().getOption(sid).isEmpty() || getOptions().getOption(sid).contains("dot")))) {
+                                    g.fillOval(getX() + getWidth() - barWidth + (int) mx - rayon - spaceAlt,
+                                            getY() + (int) my - rayon,
+                                            2 * rayon + 1,
+                                            2 * rayon + 1);
+                                }
+
+                                if (i < values.size() - 1) {
+                                    if (getOptions().getOption(sid) != null &&
+                                            getOptions().getOption(sid).contains("full")) {
+                                        if ((lastY != Double.NaN) && (lastX != Double.NaN) && (lastY != 0.0) && (lastX != 0.0)) {
+                                            Polygon p = new Polygon();
+                                            p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                    getY() + (int) lastY);
+                                            p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                    getY() + (int) my);
+                                            p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                    (int) (getY() + zy));
+                                            p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                    (int) (getY() + zy));
+                                            g.fillPolygon(p);
                                         }
-                                        else
-                                        {
-                                            g.fillPolygon(p, 0, graphHeight, 0, 0, colorRanges.getColors(sid), colorRanges.getSpacings(sid, min, max));
-                                        }*/
-                                        int[] colors = colorRanges.getColors(sid);
-                                        float[] spacings = colorRanges.getSpacings(sid, min, max);
-                                        if(colors.length==spacings.length)
-                                            g.setGradient(0, graphHeight, 0, 0, colors, spacings);
-                                        g.fillPolygon(p);
-                                        g.clearGradient();
+                                    } else if (getOptions().getOption(sid) != null &&
+                                            getOptions().getOption(sid).contains("gradient")) {
 
-                                        //else MainActivity.debug("size not equal: "+colors.length+"=="+spacings.length);
+                                        if (i < values.size() && values.get(i + 1) != null) {
+                                            if ((lastY != Double.NaN) && (lastX != Double.NaN) && (lastY != 0.0) && (lastX != 0.0)) {
+                                                Polygon p = new Polygon();
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        getY() + (int) lastY);
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        getY() + (int) my);
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        (int) (getY() + zy));
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        (int) (getY() + zy));
+
+                                                int[] colors = colorRanges.getColors(sid);
+                                                float[] spacings = colorRanges.getSpacings(sid, min, max);
+                                                if (colors.length == spacings.length)
+                                                    g.setGradient(0, graphHeight, 0, 0, colors, spacings);
+                                                g.fillPolygon(p);
+                                                g.clearGradient();
+
+                                                //else MainActivity.debug("size not equal: "+colors.length+"=="+spacings.length);
+                                            }
+                                        }
+                                    } else {
+                                        if(lastX!=Double.NaN && lastY!=Double.NaN && lastX!=0.0 && lastY!=0.0) {
+
+                                                g.drawLine(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        getY() + (int) lastY,
+                                                        getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        getY() + (int) my);
+                                        }
                                     }
                                 }
-                                else
-                                {
-                                    g.drawLine(getX() + getWidth() - barWidth + (int) lastX-spaceAlt,
-                                            getY() + (int) lastY,
-                                            getX() + getWidth() - barWidth + (int) mx-spaceAlt,
-                                            getY() + (int) my);
+                                lastX = mx;
+                                lastY = my;
+                            }
+                        }
+                    }
+                }
+                else // forward
+                {
+                    long minTime = start; //values.get(0).date;
+
+                    for (int i = 0; i < values.size() ; i++) {
+                            TimePoint tp = values.get(i);
+
+                            if (tp != null) {
+                                g.setColor(colorRanges.getColor(sid, tp.value, getColor(s)));
+
+                                double mx =  ((tp.date-minTime) / timeSale / 1000);
+
+                                if (mx > barWidth) {
+                                    // ignore point that are out of scope but do not delete them
+                                    //values.remove(i);
+                                } else {
+                                    double my = graphHeight - (tp.value - min) * h;
+
+                                    // check if y should be fixed: colorline[value-of-y]
+                                    if ((getOptions().getOption(sid) != null &&
+                                            !getOptions().getOption(sid).isEmpty() &&
+                                            getOptions().getOption(sid).contains("colorline"))) {
+
+                                        // parse out position of line
+                                        String options = getOptions().getOption(sid);
+                                        int index = options.indexOf("colorline");
+                                        index += ("colorline").length() + 1;
+                                        String value = "";
+                                        while (index < options.length() && options.charAt(index) != ']') {
+                                            value += options.charAt(index);
+                                            index++;
+                                        }
+                                        my = graphHeight - (Double.valueOf(value) - min) * h;
+                                    }
+
+                                    double zy = graphHeight - (0 - min) * h;
+
+                                    // draw on alternate scale if requested
+                                    if (getOptions().getOption(sid) != null &&
+                                            getOptions().getOption(sid).contains("alt")) {
+                                        my = graphHeight - (tp.value - minAlt) * hAlt;
+                                        zy = graphHeight - (0 - minAlt) * hAlt;
+                                    }
+
+                                    int rayon = 2;
+
+                                    //MainActivity.debug("HERE: "+sid+" / "+getOptions().getOption(sid));
+
+                                    if (getOptions().getOption(sid) == null ||
+                                            (getOptions().getOption(sid) != null &&
+                                                    (getOptions().getOption(sid).isEmpty() || getOptions().getOption(sid).contains("dot")))) {
+                                        g.fillOval(getX() + getWidth() - barWidth + (int) mx - rayon - spaceAlt,
+                                                getY() + (int) my - rayon,
+                                                2 * rayon + 1,
+                                                2 * rayon + 1);
+                                    }
+
+                                    if (i > 0) {
+                                        if (getOptions().getOption(sid) != null &&
+                                                getOptions().getOption(sid).contains("full")) {
+                                            if ((lastY != Double.NaN) && (lastX != Double.NaN) && (lastY != 0.0) && (lastX != 0.0)) {
+                                                Polygon p = new Polygon();
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        getY() + (int) lastY);
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        getY() + (int) my);
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        (int) (getY() + zy));
+                                                p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        (int) (getY() + zy));
+                                                g.fillPolygon(p);
+                                            }
+                                        } else if (getOptions().getOption(sid) != null &&
+                                                getOptions().getOption(sid).contains("gradient")) {
+
+                                            //if (i < values.size() && values.get(i - 1) != null) {
+                                                if ((lastY != Double.NaN) && (lastX != Double.NaN) && (lastY != 0.0) && (lastX != 0.0)) {
+                                                    Polygon p = new Polygon();
+                                                    p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                            getY() + (int) lastY);
+                                                    p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                            getY() + (int) my);
+                                                    p.addPoint(getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                            (int) (getY() + zy));
+                                                    p.addPoint(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                            (int) (getY() + zy));
+
+                                                    int[] colors = colorRanges.getColors(sid);
+                                                    float[] spacings = colorRanges.getSpacings(sid, min, max);
+                                                    if (colors.length == spacings.length)
+                                                        g.setGradient(0, graphHeight, 0, 0, colors, spacings);
+                                                    g.fillPolygon(p);
+                                                    g.clearGradient();
+
+                                                    //else MainActivity.debug("size not equal: "+colors.length+"=="+spacings.length);
+                                                }
+                                            //}
+                                        } else {
+                                            if(lastX!=Double.NaN && lastY!=Double.NaN && (lastY != 0.0) && (lastX != 0.0))
+                                            {
+                                                g.drawLine(getX() + getWidth() - barWidth + (int) lastX - spaceAlt,
+                                                        getY() + (int) lastY,
+                                                        getX() + getWidth() - barWidth + (int) mx - spaceAlt,
+                                                        getY() + (int) my);
+                                            }
+                                        }
+                                    }
+                                    lastX = mx;
+                                    lastY = my;
                                 }
                             }
-                            lastX = mx;
-                            lastY = my;
-                        }
                     }
                 }
             }
@@ -353,21 +526,47 @@ public class Timeplot extends Drawable {
         // draw bottom axis
         int c = 0;
         int ts = (int) timeSale;
-        for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
+
+        //MainActivity.debug("Start : "+sdf.format(start));
+        if(backward)
         {
-            if(c%(5*ts)==0) {
-                g.setColor(getForeground());
-                g.drawLine(x, graphHeight, x, graphHeight + 10);
-                String date = sdf.format((start - ((start % interval))*timeSale - interval * c*timeSale) * 1000);
-                g.drawString(date, x - g.stringWidth(date) - 4, height - 2);
-            }
-            else
+            for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
             {
-                g.setColor(getForeground());
-                g.drawLine(x, graphHeight, x, graphHeight + 3);
+                if(c%(5*ts)==0) {
+                    g.setColor(getForeground());
+                    g.drawLine(x, graphHeight, x, graphHeight + 10);
+                    String date = sdf.format((start - ((start % interval))*timeSale - interval * c*timeSale*1000));
+                    g.drawString(date, x - g.stringWidth(date) - 4, height - 2);
+                }
+                else
+                {
+                    g.setColor(getForeground());
+                    g.drawLine(x, graphHeight, x, graphHeight + 3);
+                }
+                c++;
             }
-            c++;
         }
+        else
+        {
+            //MainActivity.debug("START: "+sdf.format(start));
+            for(long x=width-barWidth-spaceAlt; x<width-spaceAlt; x+=interval)
+            {
+                if(c%(5*ts)==0) {
+                    g.setColor(getForeground());
+                    g.drawLine(x, graphHeight, x, graphHeight + 10);
+                    String date = sdf.format( start + (interval * c*timeSale*1000));
+                    g.drawString(date, x - g.stringWidth(date) - 4, height - 2);
+                }
+                else
+                {
+                    g.setColor(getForeground());
+                    g.drawLine(x, graphHeight, x, graphHeight + 3);
+                }
+                c++;
+            }
+        }
+
+
 
 
         // draw the title
@@ -389,22 +588,28 @@ public class Timeplot extends Drawable {
                 ArrayList<TimePoint> values = this.values.get(sid);
                 Field field = Fields.getInstance().getBySID(sid);
 
+                String text;
+
                 if(field !=null) {
-                    String text = String.format("%." + String.valueOf(field.getDecimals()) + "f", field.getValue());
-
-                    g.setTextSize(40);
-
-                    if(values.isEmpty())
-                        g.setColor(getColor(s));
-                    else
-                        g.setColor(colorRanges.getColor(sid, values.get(values.size()-1).value, getColor(s)));
-
-                    int tw = g.stringWidth(text);
-                    int th = g.stringHeight(text);
-                    int tx = getX()+width-tw-8-spaceAlt;
-                    int ty = getY()+(s+1)*(th+4);
-                    g.drawString(text, tx, ty);
+                    text = String.format("%." + String.valueOf(field.getDecimals()) + "f", field.getValue());
                 }
+                else {
+                    if(values.size()==0) text="N/A";
+                    else text = String.valueOf(values.get(values.size()-1).value);
+                }
+
+                g.setTextSize(40);
+
+                if(values.isEmpty())
+                    g.setColor(getColor(s));
+                else
+                    g.setColor(colorRanges.getColor(sid, values.get(values.size()-1).value, getColor(s)));
+
+                int tw = g.stringWidth(text);
+                int th = g.stringHeight(text);
+                int tx = getX()+width-tw-8-spaceAlt;
+                int ty = getY()+(s+1)*(th+4);
+                g.drawString(text, tx, ty);
             }
         }
 
@@ -452,4 +657,26 @@ public class Timeplot extends Drawable {
             values.put(sid, new ArrayList<TimePoint>());
         }
     }
+
+    public void setValues(HashMap<String, ArrayList<TimePoint>> values) {
+        sids.clear();
+
+        for (String key : values.keySet())
+        {
+            sids.add(key);
+        }
+
+        this.values = values;
+    }
+
+
+    public boolean isBackward() {
+        return backward;
+    }
+
+    public void setBackward(boolean backward) {
+        this.backward = backward;
+    }
 }
+
+

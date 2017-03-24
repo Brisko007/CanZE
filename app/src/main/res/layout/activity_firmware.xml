@@ -1,4 +1,4 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
@@ -12,20 +12,13 @@
 
     <ScrollView
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
-
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/HeaderFirmware"
-                android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/header_firmware"
-                android:textColor="#000" />
 
             <TableLayout
                 android:layout_width="fill_parent"
@@ -248,8 +241,6 @@
                 <LinearLayout
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginLeft="8dp"
-                    android:layout_marginRight="8dp"
                     android:layout_marginTop="8dp"
                     android:layout_weight="1"
                     android:background="#ffd124"
@@ -258,14 +249,9 @@
                     <TextView
                         android:id="@+id/link"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
+                        android:layout_height="0dp"
                         android:layout_gravity="center"
-                        android:layout_marginBottom="2dp"
-                        android:layout_marginLeft="4dp"
-                        android:layout_marginRight="2dp"
-                        android:layout_marginTop="2dp"
                         android:layout_weight="1"
-                        android:text=""
                         android:textAppearance="?android:attr/textAppearanceMedium" />
                 </LinearLayout>
 
@@ -275,25 +261,56 @@
 
     </ScrollView>
 
-    <!-- debug line -->
-    <TableLayout
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true">
+    <!-- debug line with version info added -->
 
-        <TableRow>
+
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"        >
+
+        <TextView
+            android:id="@+id/textDiagVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+        <TextView
+            android:id="@+id/textSupplier"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+        <TextView
+            android:id="@+id/textSoft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+        <TextView
+            android:id="@+id/textVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"        >
 
             <TextView
                 android:text="@string/label_debug"
-                android:textColor="#000" />
+                android:textColor="#000"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
 
+                />
             <TextView
                 android:id="@+id/textDebug"
-                android:paddingLeft="8dp"
-                android:text="@string/default_debug" />
-        </TableRow>
+                android:text="@string/default_debug"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                />
 
-    </TableLayout>
-
-</RelativeLayout>
-
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -23,9 +23,14 @@ package lu.fisch.canze.actors;
 
 /**
  * Battery
+ *
+ * This class represents a mathematical representation of the battery and it's charging behavior.
+ * Please note that this class has no relation with the real battery in the car. It is ONLY used
+ * for prediction and it's SOC, or any parameter, or any calculation is an approximation. For non
+ * predictive functions, always use the paramters as they are supplied by the car's LBC.
+ *
  */
 public class Battery {
-
 
     /*
      * Meta code on usage
@@ -43,6 +48,10 @@ public class Battery {
      *
      * Some rough parameters derived from this document: http://www.cse.anl.gov/us%2Dchina%2Dworkshop%2D2011/pdfs/batteries/LiFePO4%20battery%20performances%20testing%20for%20BMS.pdf
      *
+     * Still to implement
+     * - state of health
+     * - discharge behavior
+     *
      */
 
     private double temperature = 10.0;
@@ -51,33 +60,67 @@ public class Battery {
     private double capacity = 22.0;                     // in kWh
     private double maxDcPower = 0;                      // in kW. This excludes the max imposed by the external charger
     private double dcPower = 0;                         // in kW This includes the max imposed by the external charger
+    private int secondsRunning = 0;                     // seconds in iteration, reset by setStateOfChargePerc
+    private double dcPowerUpperLimit = 40.0;            // for R240/R90 use 20
+    private double dcPowerLowerLimit = 2.0;             // for R240/R90 use 1
+    private double rawCapacity = 22;                    // R90/Q90 use 41
 
     private void predictMaxDcPower () {
+
+        // if the state of charge (in kW) exceeds the capacity of the battery
         if (stateOfCharge >= capacity) {
+
+            // stop charging
             maxDcPower = 0.0;
+
+        // if there is capacity left to charge
         } else {
+
+            // calculate the SOC in percantage
             double stateOfChargePercentage = stateOfCharge * 100.0 / capacity;
+
+            // get a rounded temperature
             int intTemperature = (int )temperature;
+
+            // now use a model to calculate the DC power, based on SOC and temperature
             maxDcPower = 19.0 + (3.6 * intTemperature) - (0.026 * stateOfChargePercentage * intTemperature) - (0.34 * stateOfChargePercentage);
-            if (maxDcPower > 40.0) {
-                maxDcPower = 40.0;
-            } else if (maxDcPower < 2.0) {
-                maxDcPower = 2.0;
+            //maxDcPower = 27.1 + (0.76 * intTemperature) - (0.27 * stateOfChargePercentage);
+
+            if (maxDcPower > dcPowerUpperLimit) {
+                maxDcPower = dcPowerUpperLimit;
+            } else if (maxDcPower < dcPowerLowerLimit) {
+                maxDcPower = dcPowerLowerLimit;
+
             }
         }
     }
 
     private void predictDcPower() {
+
+        // calculate what the battery can take
         predictMaxDcPower();
+
+        // predict the efficiency of the charger (assuming it will run at the cpacity the battery can take)
         double efficiency = 0.80 + maxDcPower * 0.00375;
+
+        // predict what is needed on the AC side to give thabattery what it can take
         double requestedAcPower = maxDcPower / efficiency;
+
+        // if this is more than what the charger can deliver
         if (requestedAcPower > chargerPower) {
+
+            // recalculate the efficiency based on the maximum the charger can deliver
             efficiency = 0.80 + chargerPower * 0.00375;
+
+            // DC is maximum AC corrected for efficiency
             dcPower = chargerPower * efficiency;
+
+        // if this is less than the charger can delever
         } else {
+
+            // DC is what the battery can take
             dcPower = maxDcPower;
         }
-
     }
 
     /*
@@ -85,9 +128,10 @@ public class Battery {
      */
 
     public void iterateCharging (int seconds) {
+        secondsRunning += seconds;
         predictDcPower ();
         setTemperature (temperature + (seconds * dcPower / 7200)); // assume one degree per 40 kW per 3 minutes (180 seconds)
-        setStateOfCharge (stateOfCharge + (dcPower * 0.95) / 60); // 1kW adds 95% of 1kWh in 60 minutes
+        setStateOfChargeKw (stateOfCharge + (dcPower * seconds * 0.95) / 3600); // 1kW adds 95% of 1kWh in 60 minutes
     }
 
     /*
@@ -100,17 +144,24 @@ public class Battery {
 
     public void setTemperature(double temperature) {
         this.temperature = temperature;
-        capacity = temperature > 15.0 ? 22.0 : (temperature > 0 ? 19.8 + temperature * 2.2 /15.0 : (19.8 + temperature * 4.4 /15.0));
-        setStateOfCharge (getStateOfCharge());
+        setRawCapacity(getRawCapacity());
     }
 
-    public double getStateOfCharge() {
+    public double getStateOfChargeKw() {
         return stateOfCharge;
     }
 
-    public void setStateOfCharge(double stateOfCharge) {
+    public void setStateOfChargeKw(double stateOfCharge) {
         this.stateOfCharge = stateOfCharge;
         if (this.stateOfCharge > this.capacity) this.stateOfCharge = this.capacity;
+    }
+
+    public double getStateOfChargePerc() {
+        return stateOfCharge * 100 / this.capacity;
+    }
+
+    public void setStateOfChargePerc(double stateOfCharge) {
+        setStateOfChargeKw(stateOfCharge * this.capacity / 100);
     }
 
     public double getChargerPower() {
@@ -132,5 +183,48 @@ public class Battery {
     public double getDcPower() {
         predictDcPower ();
         return dcPower;
+    }
+
+    public int getTimeRunning () { return secondsRunning; }
+
+    public void setTimeRunning (int secondsRunning) {
+        this.secondsRunning = secondsRunning;
+    }
+
+    public double getDcPowerUpperLimit() {
+        return dcPowerUpperLimit;
+    }
+
+    public void setDcPowerUpperLimit(double dcPowerUpperLimit) {
+        this.dcPowerUpperLimit = dcPowerUpperLimit;
+    }
+
+    public double getDcPowerLowerLimit() {
+        return dcPowerLowerLimit;
+    }
+
+    public void setDcPowerLowerLimit(double dcPowerLowerLimit) {
+        this.dcPowerLowerLimit = dcPowerLowerLimit;
+    }
+
+    public double getRawCapacity() {
+        return rawCapacity;
+    }
+
+    public void setRawCapacity(double rawCapacity) {
+        this.rawCapacity = rawCapacity;
+
+        // adjust for capacity loss due to temperature differences (system wide)
+        if (temperature > 15.0) {
+            capacity = rawCapacity;
+        } else if (temperature > 0) {
+            capacity = 0.9 * rawCapacity + temperature * 2.2 / 15.0;
+        } else {
+            capacity = 0.9 * rawCapacity + temperature * 4.4 / 15.0;
+        }
+
+        // ensure the SOC is refreshed. This is only relevant for a very full battery
+        setStateOfChargeKw(getStateOfChargeKw());
+
     }
 }

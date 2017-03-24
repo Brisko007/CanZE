@@ -1,3 +1,154 @@
+---< Version 1.24 / 2017.02.21 >---
+2017.02.21 [Bob] Hotfix for issue #441
+
+---< Version 1.23 / 2017.02.19 >---
+2017.02.16 [Bob] Repair poller restart for HTTP based device
+2017.02.16 [Bob] Fixed some imprecisions in widget Timeplot
+2017.02.16 [Bob] Added option colorline[x] for widget Timeplot
+
+---< Version 1.22 / 2017.02.12 >---
+2017.02.12 [Jeroen] Added total energy to ChargingTech #430
+2017.02.12 [Bob] Spanish language file added, many thanks to the contributors
+2017.02.11 [Jeroen] Improved code to get DTC's
+2017.02.11 [Jeroen] Added TCU to the DTC reporting
+2017.02.11 [Jeroen] Changed http interface to use RequestID instead of ResponseID
+2017.02.09 [Jeroen] Added compressor RPM graph (0-4000) in climatech
+2017.02.09 [Jeroen] Fixed Y axis on ChargingGraphs for model 90s
+2017.02.06 [Jeroen] Fixed formatting problem in ChargingTech
+2017.02.05 [Jeroen] Code fixup on getting strings from language packs
+2017.02.05 [Jeroen] Added debug lines to all running screens
+2017.02.05 [Jeroen] Lots of code and layout cleanup
+2017.02.03 [Jeroen] Allow operation without BT adapter so runs on emulator
+2017.02.02 [Jeroen] Fixed ELM test
+2017.02.02 [Jeroen] Fixed ELM test #427
+2017.02.02 [Bob] Merged German with file received from Roland Klose <rkl.fritzbox@gmx.de>
+2017.02.02 [Jeroen] Compressor power dissed, replaced with RPM.
+2017.02.02 [Jeroen] Hotfix on master: log level #417
+2017.02.02 [Jeroen] Added German (Thank you Stefan!)
+2017.02.01 [Jeroen] Climatech, climate replaced power by a graph
+2017.01.31 [Jeroen] Added Slovenian (Thank you Zdenko!)
+2017.01.27 [Jeroen] Climatech, Power as extra field
+
+---< Version 1.21 / 2017.01.29 >---2017.01.29 [Bob] Fixing issue: V1.20 crashes #407
+2017.01.29 [Bob] Fixing issue: V1.20 crashes #407
+
+---< Version 1.20 / 2017.01.28 >---
+2017.01.28 [Bob] Forgot to pull before compiling!!!
+2017.01.28 [Bob] Added missing FR strings
+
+---< Version 1.19 / 2017.01.28 >---
+
+2017.01.20 [Jeroen] Sped up / simplified selecting next frame by using .min instead of .sort in the queues
+2017.01.14 [Jeroen] Implemented DebugListener so Device can send debug lines to Activity without Toasts
+2017.01.14 [Jeroen] Reduced device resets (one retry without reset)
+2017.01.14 [Jeroen] Fixed graph title in clima to resources
+2017.01.14 [Jeroen] Added debugging to ELM327http to find hangup
+2017.01.13 [Jeroen] More code cleanup and String separation
+2017.01.08 [Bob] Fixed a zoomin problem
+2017.01.08 [Bob] Fixed a crash of the charging screen
+2017.01.08 [Bob] Fixed a crash of the climate screen
+2017.01.07 [Jeroen] Separated all strings, Dutch translation as example. Minor fixes
+2017.01.07 [Jeroen] Changed initListeners to be abstract, removed repeated code for addListeners
+                    and fiels subscription management. Still bug in zoom one widget
+2017.01.07 [Bob] Fixed timeplotter x-axis label problem (second try)
+2017.01.06 [Bob] Fixed a wrong event for Settings.deviceList
+2017.01.05 [Jeroen] Settings changed so the last http address is retained after choosing BT device
+2017.01.04 [Bob] Fixed timeplotter x-axis label problem
+2017.01.04 [Jeroen] Improved temp/balances part in chargingtech, removed possible charging pwr from climatech
+2017.01.04 [Jeroen] Cleanup of Lint (almost everywhere, not complete)
+2017.01.03 [Jeroen] Modified gateway settings to enable on "HTTP" instead of >4th device and a bit of cleanup
+2017.01.03 [Jeroen] Fixed layouts and string resources in Firmware, Consumption, Driving, DTC, ELMtest
+2017.01.02 [Bob] Modified settings to add configurable address if HTTP selected
+2016.12.31 [Jeroen] Better formatting in charging and chargingtech
+2016.12.30 [Bob] Added stoppable thread for DTC reading
+2016.12.30 [Bob] Removed min & max values from Plotter widget #381
+2016.12.30 [Jeroen] Updated layouts braking, charging, driving, firmware, prediction, tyres
+2016.12.30 [Jeroen] Minor changes in Main and Battery layouts
+2016.12.30 [Jeroen] Climatech moved to technical section, better layout (use filler)
+2016.12.30 [Jeroen] ClimaTech added ClimaLoopMode, moved batt temp to graph
+2016.12.29 [Jeroen] Alernative DTC code display
+2016.12.29 [Jeroen] ELM327 fixed flush hanging if ELM327 babbling
+2016.12.29 [Jeroen] ELM327Http better error messages
+2016.12.25 [Jeroen] Backported a few changes in the ELM driver from gateway to CanZE
+2016.12.24 [Jeroen] Added Dtc Test class and initialisation code, completed display of DTCs
+2016.12.24 [Jeroen] Started implementing DTC messages per EcuDiagXXX
+2016.12.24 [Jeroen] Activated and debugged string fields, and loaded proper options in EcuDiagCLIM
+2016.12.24 [Jeroen] Moved onMessageCompleteEvent to class Message and removed MessageListener
+2016.12.23 [Jeroen] Fixed compile time-date in settings, issue #370
+2016.12.23 [Jeroen] Populated dynamic classed for UBP
+2016.12.22 [Jeroen] Populated dynamic classed for EPS and PEB
+2016.12.22 [Jeroen] Populated dynamic classed for CLUSTER (instrument panel, oops in French)
+2016.12.22 [Jeroen] Fixed a few minor bugs in ChargingTech
+2016.12.22 [Jeroen] Added isZOE and isFLuKan for easier programming and better readability
+2016.12.22 [Jeroen] Populated dynamic classed for EVC and BCB/JB2
+2016.12.21 [Jeroen] Class EcuDiag added dumping results to file
+2016.12.20 [Jeroen] Changed DtcActivity to Dynamic Class loading for definitions
+2016.12.20 [Jeroen] Populated dynamic classed for CLIM and LBC
+2016.12.20 [Jeroen] Added unit to numerical Diagnose values
+2016.12.19 [Jeroen] Added Range to manifest (crashed CanZE)
+2016.12.18 [Jeroen] Class Chargingtech removed Ah, added balancing switches
+2016.12.18 [Jeroen] Class Mainactivity crash after clearing data (deviceName null)
+2016.12.18 [Jeroen] Put dummy gateway server online
+2016.12.18 [Jeroen] Class ELM327Http added
+2016.12.18 [Jeroen] Class Settingsactivity ELM327Http and Http added
+2016.12.14 [Jeroen] Class BluetoothManager implemented dummyMode
+2016.12.04 [Jeroen] Class Mainactivity registerApplicationFields() changed to public. Avoid null exception when
+                        speed field is not available, loadsettings sets BT dummyMode
+2016.12.04 [Jeroen] Class Frames structure for initialization now identical to Fields (subframes)
+2016.12.04 [Jeroen] Added EcuDiagLBC with a small init string
+2016.11.29 [Jeroen] Class (Virtual)Field and Fields: added decent String and List support
+2016.11.29 [Jeroen] DtcActivity: added doDiag and corresponding button in activity
+2016.11.29 [Jeroen] Class Ecu: added dtcs and frames and possibily for dynamic loading. Probably unneeded
+2016.11.29 [Jeroen] Class Field: added getFrame, optional name and optional list. Offset to int
+2016.11.29 [Jeroen] Class VirtualField: match with Field
+2016.11.29 [Jeroen] Class Frame: added fields, addField and getAllFields to optimize Fields.onMessageCompleteEvent
+2016.11.29 [Jeroen] Class Device: minor reformatting
+2016.12.18 [Jeroen] Changed overall logic that frames and messages are bound to a device, not fields
+2016.11.29 [Jeroen] Class Fields: optimized Fields.onMessageCompleteEvent massively. Added fillDynamic, overloaded load()
+                        get options field back in line and update mains spreadsheet to that and cars
+                        Removed all 0x from codes
+2016.10.23 [Jeroen] Ensure frames are reloaded before fields
+
+
+---< Version 1.18 / 2016.11.08 >---
+
+2016.11.08 [Bob] Fixed a bug leading to non displaying some values
+
+---< Version 1.17 / 2016.10.31 >---
+
+2016.10.23 [Bob] Made widgets ready for different cars
+2016.10.23 [Bob] Application crashed for any selection of ZOE R240, ZOE Q90 and ZOE R90
+2016.10.23 [Jeroen] Split ZOE into ZOE Q210, ZOE R240, ZOE Q90 and ZOE R90 for battery prediction
+
+---< Version 1.16 / 2016.10.19 >---
+
+2016.10.11 [Jeroen] Refined length of prediction interval
+2016.08.24 [Jeroen] Split ZOE into ZOE Q210 and ZOE R240 for battery prediction
+
+---< Version 1.15 / 2016.08.10 >---
+
+2016.07.28 [Bob] Fixed a scaling error in Plotter & BarGraph widgets
+2016.07.12 [Jeroen] updated Zoé to ZOE (official Renault verbiage)
+2016.07.12 [Jeroen] major update in prediction logic
+
+---< Version 1.14 / 2016.06.13 >---
+
+2016.06.16 [Jeroen] fixed many bugs in prediction and battery, moved to Tech section
+2016.06.16 [Jeroen] fixed bug in HV kilomters
+2016.05.16 [Bob] added forward mode to graphs
+
+---< Version 1.13 / 2016.05.15 >---
+
+2016.05.14 [Jeroen] Added 8 bits to HV kilometers (bringing it in line with car kms), attempted fix issue #337
+2016.04.18 [Jeroen] Added (untested) code to get battery data into the prediction plotter
+2016.04.18 [Jeroen] Small improvements to the Battery model
+2016.04.18 [Bob] Trying to fix issue #310
+2016.04.18 [Bob] The plotter on the Battery screen has been fixed
+
+---< Version 1.12 / 2016.04.11 >---
+
+2016.04.06 [Bob] Trying to resolve a NullPointerException ereported by Google Dev Console
+2016.03.31 [Bob] Modified Prediction fragement to work with Timeplot instead of plotter
 2016.03.13 [Bob] Added timestamp to field logger
 2016.03.06 [Bob] Battery screen: uncommented SOH field, modified scale for voltage (issue #329)
 2016.03.04 [Jeroen] Improved description of SOC fields. Improved Class Battery to use int of temperature

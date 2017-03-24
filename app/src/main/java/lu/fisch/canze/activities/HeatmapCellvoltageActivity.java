@@ -22,27 +22,22 @@
 package lu.fisch.canze.activities;
 
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
 import android.widget.TextView;
 
-import java.util.ArrayList;
+import java.util.Locale;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
-import lu.fisch.canze.actors.Fields;
-import lu.fisch.canze.database.CanzeDataSource;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
 
 /**
  * Heatmap by jeroen on 27-10-15.
  */
-public class HeatmapCellvoltageActivity extends CanzeActivity implements FieldListener {
+public class HeatmapCellvoltageActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     public static final String SID_Preamble_CellVoltages1 = "7bb.6141."; // (LBC)
     public static final String SID_Preamble_CellVoltages2 = "7bb.6142."; // (LBC)
-
-    private ArrayList<Field> subscribedFields;
 
     private double mean = 0;
     private double cutoff;
@@ -56,56 +51,17 @@ public class HeatmapCellvoltageActivity extends CanzeActivity implements FieldLi
         setContentView(R.layout.activity_heatmap_cellvoltage);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // initialise the widgets
-        initListeners();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        removeListeners();
-    }
-
-    private void initListeners() {
-
-        subscribedFields = new ArrayList<>();
-
+    protected void initListeners() {
+        MainActivity.getInstance().setDebugListener(this);
         // Battery compartment temperatures
         for (int i = 1; i <= 62; i++) {
             String sid = SID_Preamble_CellVoltages1 + (i * 16); // remember, first is pos 16, i starts s at 1
-            addListener(sid);
+            addField(sid);
         }
         for (int i = 63; i <= 96; i++) {
             String sid = SID_Preamble_CellVoltages2 + ((i - 62) * 16); // remember, first is pos 16, i starts s at 1
-            addListener(sid);
+            addField(sid);
         }
-    }
-
-    private void removeListeners () {
-        // empty the query loop
-        MainActivity.device.clearFields();
-        // free up the listeners again
-        for (Field field : subscribedFields) {
-            field.removeListener(this);
-        }
-        subscribedFields.clear();
-    }
-
-    private void addListener(String sid) {
-        Field field;
-        field = MainActivity.fields.getBySID(sid);
-        if (field != null) {
-            field.addListener(this);
-            MainActivity.device.addActivityField(field);
-            subscribedFields.add(field);
-        } else {
-            MainActivity.toast("sid " + sid + " does not exist in class Fields");
-        }
-
     }
 
     // This is the event fired as soon as this the registered fields are
@@ -122,14 +78,6 @@ public class HeatmapCellvoltageActivity extends CanzeActivity implements FieldLi
         }
         if (cell > 0 && cell <= lastCell) {
             final double value = field.getValue();
-
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    TextView tv = (TextView) findViewById(R.id.textDebug);
-                    tv.setText(fieldId + ":" + value);
-                }
-            });
 
             lastVoltage[cell] = value;
             if (cell == lastCell) {
@@ -153,7 +101,8 @@ public class HeatmapCellvoltageActivity extends CanzeActivity implements FieldLi
                         for (int i = 1; i <= lastCell; i++) {
                             TextView tv = (TextView) findViewById(getResources().getIdentifier("text_cell_" + i + "_voltage", "id", getPackageName()));
                             if (tv != null) {
-                                tv.setText(String.format("%.3f", lastVoltage[i]));
+                                // tv.setText(String.format("%.3f", lastVoltage[i]));
+                                tv.setText(String.format(Locale.getDefault(), "%.3f", lastVoltage[i]));
                                 int color = (int) (5000 * (lastVoltage[i] - mean)); // color is temp minus mean. 1mV difference is 5 color ticks
                                 if (lastVoltage[i] <= cutoff) {
                                     color = 0xffff4040;

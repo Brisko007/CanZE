@@ -32,6 +32,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.res.Resources;
 import android.graphics.Point;
 import android.graphics.drawable.AnimationDrawable;
 import android.os.Build;
@@ -49,15 +50,13 @@ import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.UUID;
+import java.util.Locale;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
@@ -70,19 +69,20 @@ import lu.fisch.canze.database.CanzeDataSource;
 import lu.fisch.canze.devices.BobDue;
 import lu.fisch.canze.devices.Device;
 import lu.fisch.canze.devices.ELM327;
+import lu.fisch.canze.devices.ELM327OverHttp;
 import lu.fisch.canze.fragments.ExperimentalFragment;
 import lu.fisch.canze.fragments.MainFragment;
 import lu.fisch.canze.fragments.TechnicalFragment;
 import lu.fisch.canze.interfaces.BluetoothEvent;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
 import lu.fisch.canze.ui.AppSectionsPagerAdapter;
-import lu.fisch.canze.widgets.WidgetView;
 
 public class MainActivity extends AppCompatActivity implements FieldListener /*, android.support.v7.app.ActionBar.TabListener */{
     public static final String TAG = "  CanZE";
 
     // SPP UUID service
-    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    // private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
     public final static String PREFERENCES_FILE = "lu.fisch.canze.settings";
     public final static String DATA_FILE = "lu.fisch.canze.data";
@@ -90,27 +90,47 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
     // MAC-address of Bluetooth module (you must edit this line)
     private static String bluetoothDeviceAddress = null;
     private static String bluetoothDeviceName = null;
-    private static String dataFormat = "bob";
-    private static String deviceName = "Arduino";
 
-    public final static int RECEIVE_MESSAGE   = 1;
-    public final static int REQUEST_ENABLE_BT = 3;
-    public final static int SETTINGS_ACTIVITY = 7;
-    public final static int LEAVE_BLUETOOTH_ON= 11;
+    // url of gateway if in use
+    private static String gatewayUrl = null;
 
-    public static final int CAR_NONE            = 0x00;
-    //public static final int CAR_ANY             = 0x1f;
-    public static final int CAR_FLUENCE         = 0x01;
-    public static final int CAR_ZOE             = 0x02;
-    public static final int CAR_KANGOO          = 0x04;
-    public static final int CAR_TWIZY           = 0x08;    // you'll never know ;-)
-    public static final int CAR_X10             = 0x10;
+    // public final static int RECEIVE_MESSAGE      = 1;
+    public final static int REQUEST_ENABLE_BT       = 3;
+    public final static int SETTINGS_ACTIVITY       = 7;
+    public final static int LEAVE_BLUETOOTH_ON      = 11;
 
-    private StringBuilder sb = new StringBuilder();
-    private String buffer = "";
+    // note that the CAR constants are stored in the option property of the field object
+    // this is a short
 
-    private int count;
-    private long start;
+    // public static final short CAR_MASK            = 0xff;
+
+    public static final short CAR_NONE              = 0x000;
+    //public static final int CAR_ANY               = 0x0ff;
+    public static final short CAR_FLUENCE           = 0x001;
+    public static final short CAR_ZOE_Q210          = 0x002;
+    public static final short CAR_KANGOO            = 0x004;
+    // public static final short CAR_TWIZY          = 0x008;     // you'll never know ;-)
+    public static final short CAR_X10               = 0x010;     // not used
+    public static final short CAR_ZOE_R240          = 0x020;
+    public static final short CAR_ZOE_Q90           = 0x040;
+    public static final short CAR_ZOE_R90           = 0x080;
+
+    public static final short FIELD_TYPE_MASK       = 0x700;
+    //public static final short FIELD_TYPE_UNSIGNED = 0x000;
+    public static final short FIELD_TYPE_SIGNED     = 0x100;
+    public static final short FIELD_TYPE_STRING     = 0x200;      // not implemented yet
+
+    public static final short TOAST_NONE            = 0;
+    public static final short TOAST_ELM             = 1;
+    public static final short TOAST_ELMCAR          = 2;
+
+    public static final double reduction            = 9.32;     // update suggested by Loc Dao
+
+    // private StringBuilder sb = new StringBuilder();
+    // private String buffer = "";
+
+    // private int count;
+    // private long start;
 
     private boolean visible = true;
     public boolean leaveBluetoothOn = false;
@@ -137,8 +157,11 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
     public static boolean milesMode = false;
     public static int toastLevel = 1;
 
-    private Fragment actualFragment;
+    private DebugListener debugListener = null;
 
+    // private Fragment actualFragment;
+
+    static private Resources res;
 
     // bluetooth stuff
     private MenuItem bluetoothMenutItem = null;
@@ -153,7 +176,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
-            BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+            // BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 
             if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
                 //Device has disconnected
@@ -170,7 +193,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
                     // inform user
                     setTitle(TAG + " - disconnected");
                     setBluetoothState(BLUETOOTH_DISCONNECTED);
-                    Toast.makeText(MainActivity.this.getBaseContext(),"Bluetooth connection lost!",Toast.LENGTH_LONG).show();
+                    toast (R.string.toast_BluetoothLost);
 
                     // try to reconnect
                     onResume();
@@ -188,124 +211,169 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
     {
         Log.d(TAG, text);
         if(debugLogMode) {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+            SimpleDateFormat sdf = new SimpleDateFormat(getStringSingle(R.string.format_YMDHMSs), Locale.getDefault());
             DebugLogger.getInstance().log(sdf.format(Calendar.getInstance().getTime()) + ": " + text);
         }
     }
 
+    /* TODO we should move to simply always provide the level in the toast() call instead of all those if's in the code */
+    public static void toast(int level, final String message)
+    {
+        if (level > toastLevel) return;
+        if(instance!=null)
+            instance.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(instance, message, Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
+
     public static void toast(final String message)
     {
-        instance.runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(instance, message, Toast.LENGTH_SHORT).show();
-            }
-        });
+        if(instance!=null)
+            instance.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(instance, message, Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
+
+    public static void toast(String format, Object... arguments)
+    {
+        final String finalMessage = String.format(Locale.getDefault(), format, arguments);
+        if(instance!=null)
+            instance.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(instance, finalMessage, Toast.LENGTH_SHORT).show();
+                }
+            });
+    }
+
+    public static void toast(final int resource)
+    {
+        if(instance!=null)
+            instance.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    final String finalMessage = getStringSingle (resource);
+                    Toast.makeText(instance, finalMessage, Toast.LENGTH_SHORT).show();
+                }
+            });
     }
 
     public void loadSettings()
     {
         debug("MainActivity: loadSettings");
+        try {
+            SharedPreferences settings = getSharedPreferences(PREFERENCES_FILE, 0);
+            bluetoothDeviceName = settings.getString("deviceName", null);
+            bluetoothDeviceAddress = settings.getString("deviceAddress", null);
+            gatewayUrl = settings.getString("gatewayUrl", null);
+            // String dataFormat = settings.getString("dataFormat", "crdt");
+            String deviceType = settings.getString("device", "Arduino");
+            safeDrivingMode = settings.getBoolean("optSafe", true);
+            bluetoothBackgroundMode = settings.getBoolean("optBTBackground", false);
+            milesMode = settings.getBoolean("optMiles", false);
+            dataExportMode = settings.getBoolean("optDataExport", false);
+            debugLogMode = settings.getBoolean("optDebugLog", false);
+            fieldLogMode = settings.getBoolean("optFieldLog", false);
+            toastLevel = settings.getInt("optToast", 1);
 
-        SharedPreferences settings = getSharedPreferences(PREFERENCES_FILE, 0);
-        bluetoothDeviceAddress =settings.getString("deviceAddress", null);
-        bluetoothDeviceName =settings.getString("deviceName", null);
-        dataFormat = settings.getString("dataFormat", "crdt");
-        deviceName = settings.getString("device", "Arduino");
-        safeDrivingMode = settings.getBoolean("optSafe", true);
-        bluetoothBackgroundMode = settings.getBoolean("optBTBackground", false);
-        milesMode = settings.getBoolean("optMiles", false);
-        dataExportMode = settings.getBoolean("optDataExport", false);
-        debugLogMode = settings.getBoolean("optDebugLog", false);
-        fieldLogMode = settings.getBoolean("optFieldLog", false);
-        toastLevel = settings.getInt("optToast", 1);
+            if (bluetoothDeviceName != null && !bluetoothDeviceName.isEmpty() && bluetoothDeviceName.length()>4)
+                BluetoothManager.getInstance().setDummyMode(bluetoothDeviceName.substring(0, 4).compareTo("HTTP") == 0);
 
-        String carStr = settings.getString("car", "None");
-        switch (carStr) {
-            case "None":
-                // Fields.getInstance().setCar(Fields.CAR_ANY);
-                car = CAR_NONE;
-                break;
-            case "Zoé":
-                // Fields.getInstance().setCar(Fields.CAR_ZOE);
-                car = CAR_ZOE;
-                break;
-            case "Fluence":
-                // Fields.getInstance().setCar(Fields.CAR_FLUENCE);
-                car = CAR_FLUENCE;
-                break;
-            case "Kangoo":
-                // Fields.getInstance().setCar(Fields.CAR_KANGOO);
-                car = CAR_KANGOO;
-                break;
-            case "X10":
-                // Fields.getInstance().setCar(Fields.CAR_X10);
-                car = CAR_X10;
-                break;
+            String carStr = settings.getString("car", "None");
+            switch (carStr) {
+                case "None":
+                    car = CAR_NONE;
+                    break;
+                case "Zoé":
+                case "ZOE":
+                case "ZOE Q210":
+                    car = CAR_ZOE_Q210;
+                    break;
+                case "ZOE R240":
+                    car = CAR_ZOE_R240;
+                    break;
+                case "ZOE Q90":
+                    car = CAR_ZOE_Q90;
+                    break;
+                case "ZOE R90":
+                    car = CAR_ZOE_R90;
+                    break;
+                case "Fluence":
+                    car = CAR_FLUENCE;
+                    break;
+                case "Kangoo":
+                    car = CAR_KANGOO;
+                    break;
+                case "X10":
+                    car = CAR_X10;
+                    break;
+            }
+
+            // as the settings may have changed, we need to reload different things
+
+            // create a new device
+            switch (deviceType) {
+                case "Bob Due":
+                    device = new BobDue();
+                    break;
+                case "ELM327":
+                    device = new ELM327();
+                    break;
+                case "ELM327Http":
+                    device = new ELM327OverHttp();
+                    break;
+                default:
+                    device = null;
+                    break;
+            }
+
+            // since the car type may have changed, reload the frame timings and fields
+            Frames.getInstance().load();
+            fields.load();
+
+            if (device != null) {
+                // initialise the connection
+                device.initConnection();
+
+                // register application wide fields
+                // registerApplicationFields(); // now done in Fields.load
+            }
+
+            // after loading PREFERENCES we may have new values for "dataExportMode"
+            dataExportMode = dataLogger.activate(dataExportMode);
         }
-
-        // as the settings may have changed, we need to reload different things
-
-        // create a new device
-        switch (deviceName) {
-            case "Bob Due":
-                device = new BobDue();
-                break;
-            case "ELM327":
-                device = new ELM327();
-                break;
-            default:
-                device = null;
-                break;
+        catch(Exception e)
+        {
+            MainActivity.debug(e.getMessage());
+            StackTraceElement[] st = e.getStackTrace();
+            for(int i=0; i<st.length; i++)
+                MainActivity.debug(st[i].toString());
         }
-
-        // since the car type may have changed, reload the frame timings
-        fields.load();
-        Frames.getInstance().reloadTiming();
-
-        if(device!=null) {
-            // initialise the connection
-            device.initConnection();
-
-            // register application wide fields
-            registerApplicationFields();
-        }
-
-        // after loading PREFERENCES we may have new values for "dataExportMode"
-        dataExportMode = dataLogger.activate ( dataExportMode );
     }
 
-    private void registerApplicationFields() {
+    public void registerApplicationFields() {
         if (safeDrivingMode) {
             // speed
             Field field = fields.getBySID("5d7.0");
-            field.addListener(MainActivity.getInstance());
-            if(device!=null)
-                device.addApplicationField(field,1000); // query every second
+            if (field != null) {
+                field.addListener(MainActivity.getInstance()); // callback is onFieldUpdateEvent
+                if (device != null)
+                    device.addApplicationField(field, 1000); // query every second
+            }
         } else {
             Field field = fields.getBySID("5d7.0");
-            field.removeListener(MainActivity.getInstance());
-            if(device!=null)
-                device.removeApplicationField(field);
-        }
-    }
-
-    private ArrayList<WidgetView> getWidgetViewArrayList(ViewGroup viewGroup)
-    {
-        ArrayList<WidgetView> result = new ArrayList<WidgetView>();
-
-        for (int i = 0; i < viewGroup.getChildCount(); i++) {
-            View v = viewGroup.getChildAt(i);
-            if (v instanceof ViewGroup) {
-                result.addAll(getWidgetViewArrayList((ViewGroup) v));
-            }
-            else if (v instanceof WidgetView)
-            {
-                result.add((WidgetView)v);
+            if (field != null) {
+                field.removeListener(MainActivity.getInstance());
+                if (device != null)
+                    device.removeApplicationField(field);
             }
         }
-
-        return result;
     }
 
     protected void updateActionBar()
@@ -326,38 +394,16 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
         }
     }
 
-    protected void loadFragement(Fragment newFragment)
-    {
-        if(actualFragment==null || !actualFragment.getClass().equals(newFragment.getClass())) {
-
-            ActionBar actionBar = getSupportActionBar();
-            actionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_SHOW_TITLE);
-            if(newFragment instanceof  MainFragment)
-                actionBar.setIcon(R.mipmap.ic_launcher);
-            else if(newFragment instanceof  ExperimentalFragment)
-                actionBar.setIcon(R.mipmap.fragement_experimental);
-            else if(newFragment instanceof  TechnicalFragment)
-                actionBar.setIcon(R.mipmap.fragement_technical);
-
-            actualFragment=newFragment;
-            // Create fragment and give it an argument specifying the article it should show
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            // Replace whatever is in the fragment_container view with this fragment,
-            // and add the transaction to the back stack so the user can navigate back
-            transaction.replace(R.id.main, newFragment);
-            //transaction.addToBackStack(null);
-            // Commit the transaction
-            transaction.commit();
-        }
-    }
-
     private ViewPager viewPager;
-    private AppSectionsPagerAdapter appSectionsPagerAdapter;
     private ActionBar actionBar ;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // always create an instance
+
+        // needed to get strings from resources in non-Activity classes
+        res = getResources();
+
         // dataLogger = DataLogger.getInstance();
         dataLogger = new DataLogger();
 
@@ -371,7 +417,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
 
 
         // navigation bar
-        appSectionsPagerAdapter = new AppSectionsPagerAdapter(getSupportFragmentManager());
+        AppSectionsPagerAdapter appSectionsPagerAdapter = new AppSectionsPagerAdapter(getSupportFragmentManager());
         actionBar = getSupportActionBar();
         actionBar.setDisplayOptions(ActionBar.DISPLAY_SHOW_HOME | ActionBar.DISPLAY_SHOW_TITLE);
         //actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);
@@ -401,7 +447,6 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
 
         setTitle(TAG + " - not connected");
         setBluetoothState(BLUETOOTH_DISCONNECTED);
-
 
         // tabs
         //final ActionBar actionBar = getSupportActionBar();
@@ -467,7 +512,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
         // detect hardware status
         int BT_STATE = BluetoothManager.getInstance().getHardwareState();
         if(BT_STATE==BluetoothManager.STATE_BLUETOOTH_NOT_AVAILABLE)
-            Toast.makeText(this.getBaseContext(),"Sorry, but your device doesn't seem to have Bluetooth support!",Toast.LENGTH_LONG).show();
+            toast ("Sorry, but your device doesn't seem to have Bluetooth support!");
         else if (BT_STATE==BluetoothManager.STATE_BLUETOOTH_NOT_ACTIVE)
         {
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
@@ -507,6 +552,8 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
     public void onResume() {
         debug("MainActivity: onResume");
 
+        instance = this;
+
         visible=true;
         super.onResume();
 
@@ -537,47 +584,34 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
             AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
 
             // set title
-            alertDialogBuilder.setTitle("Formal Disclaimer");
+            alertDialogBuilder.setTitle(R.string.prompt_Disclaimer);
 
             // set dialog message
-            String yes = "Yes, I got it!";
-            String no  = "No, I didn't understand a word ...";
+            String yes = getStringSingle(R.string.prompt_Accept);
+            String no  = getStringSingle(R.string.prompt_Decline);
 
             Display display = getWindowManager().getDefaultDisplay();
             Point size = new Point();
             display.getSize(size);
             float width = size.x;
-            int height = size.y;
+            // int height = size.y;
             width = width / getResources().getDisplayMetrics().scaledDensity;
             if(width<=480)
             {
-                yes="Yes";
-                no ="No";
+                yes=getStringSingle(R.string.default_Yes);
+                no =getStringSingle(R.string.default_No);
             }
 
             alertDialogBuilder
-                    .setMessage(Html.fromHtml("<html>CanZE (“the software”) is provided as is. Use the software at your own risk. " +
-                            "The authors make no warranties as to performance or fitness for a particular purpose, " +
-                            "or any other warranties whether expressed or implied. No oral or written communication " +
-                            "from or information provided by the authors shall create a warranty. Under no circumstances " +
-                            "shall the authors be liable for direct, indirect, special, incidental, or consequential " +
-                            "damages resulting from the use, misuse, or inability to use the software, even if the author " +
-                            "has been advised of the possibility of such damages. These exclusions and limitations may not " +
-                            "apply in all jurisdictions. You may have additional rights and some of these limitations may not " +
-                            "apply to you. This software is only intended for scientific usage." +
-                            "<br>" +
-                            "<br>" +
-                            "<b>By using this software you are interfering with your car and doing that with hardware and " +
-                            "software beyond your control, created by a loose team of interested amateurs in this field. Any " +
-                            "car is a possibly lethal piece of machinery and you might hurt or kill yourself or others using " +
-                            "it, or even paying attention to the displays instead of watching the road.</b></html>"))
+                    .setMessage(Html.fromHtml(getStringSingle(R.string.prompt_DisclaimerText)))
                     .setCancelable(true)
                     .setPositiveButton(yes, new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int id) {
                             // if this button is clicked, close
                             SharedPreferences.Editor editor = settings.edit();
                             editor.putBoolean("disclaimer", true);
-                            editor.commit();
+                            // editor.commit();
+                            editor.apply();
                             // current activity
                             dialog.cancel();
                         }
@@ -746,7 +780,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
                 (new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        toast("Reconnecting Bluetooth ...");
+                        toast(getStringSingle(R.string.toast_Reconnecting));
                         stopBluetooth();
                         reloadBluetooth();
                     }
@@ -790,6 +824,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
                             }
                             else
                             {
+                                //noinspection deprecation
                                 imageView.setBackgroundDrawable(drawable);
                             }
                             AnimationDrawable frameAnimation = (AnimationDrawable) imageView.getBackground();
@@ -813,7 +848,7 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
             if(isSafe())
             {
                 // run a toast
-                Toast.makeText(MainActivity.this, "Stopping Bluetooth. Settings are being loaded. Please wait ....", Toast.LENGTH_SHORT).show();
+                toast (R.string.toast_WaitingSettings);
 
                 (new Thread(new Runnable() {
                     @Override
@@ -881,8 +916,41 @@ public class MainActivity extends AppCompatActivity implements FieldListener /*,
         boolean safe = !isDriving || !safeDrivingMode;
         if(!safe)
         {
-            Toast.makeText(MainActivity.instance,"Not possible while driving ...",Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.instance, R.string.toast_NotWhileDriving,Toast.LENGTH_LONG).show();
         }
         return safe;
     }
+
+    public static boolean isZOE () {
+        return (car == CAR_X10 || car == CAR_ZOE_Q90 || car == CAR_ZOE_Q210 || car == CAR_ZOE_R90 || car == CAR_ZOE_R240);
+    }
+
+    public static boolean isFluKan () {
+        return (car == CAR_FLUENCE || car == CAR_KANGOO);
+    }
+
+
+    public static String getBluetoothDeviceAddress() {
+        if("HTTP Gateway".equals(bluetoothDeviceName))
+            return gatewayUrl;
+        return bluetoothDeviceAddress;
+    }
+
+    public static String getStringSingle (int resId) {
+        return res.getString(resId);
+    }
+
+    public static String [] getStringList (int resId) {
+        return res.getStringArray(resId);
+    }
+
+    public void setDebugListener (DebugListener debugListener) {
+        this.debugListener = debugListener;
+    }
+
+    public void dropDebugMessage (String msg) {
+        if (debugListener != null) debugListener.dropDebugMessage (msg);
+    }
+
+
 }

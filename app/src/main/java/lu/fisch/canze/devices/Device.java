@@ -28,7 +28,7 @@ import java.util.Comparator;
 
 import lu.fisch.canze.activities.MainActivity;
 import lu.fisch.canze.actors.Field;
-import lu.fisch.canze.actors.Fields;
+import lu.fisch.canze.actors.Frame;
 import lu.fisch.canze.actors.Message;
 import lu.fisch.canze.actors.VirtualField;
 import lu.fisch.canze.bluetooth.BluetoothManager;
@@ -44,9 +44,14 @@ import lu.fisch.canze.database.CanzeDataSource;
 
 public abstract class Device {
 
-    private final double minIntervalMultiplicator = 1.3;
-    private final double maxIntervalMultiplicator = 2.0;
-    protected double intervalMultiplicator = minIntervalMultiplicator;
+    public static final int TOUGHNESS_HARD              = 0;    // hardest reset possible (ie atz)
+    public static final int TOUGHNESS_MEDIUM            = 1;    // medium reset (i.e. atws)
+    public static final int TOUGHNESS_SOFT              = 2;    // softest reset (i.e atd for ELM)
+    public static final int TOUGHNESS_NONE              = 100;  // just clear error status
+
+    private final double minIntervalMultiplicator       = 1.3;
+    private final double maxIntervalMultiplicator       = 2.5;
+    double intervalMultiplicator                        = minIntervalMultiplicator;
 
     /* ----------------------------------------------------------------
      * Attributes
@@ -61,13 +66,13 @@ public abstract class Device {
     /**
      * Some fields will be custom, activity based
      */
-    protected ArrayList<Field> activityFieldsScheduled = new ArrayList<>();
-    protected ArrayList<Field> activityFieldsAsFastAsPossible = new ArrayList<>();
+    private ArrayList<Field> activityFieldsScheduled = new ArrayList<>();
+    private ArrayList<Field> activityFieldsAsFastAsPossible = new ArrayList<>();
     /**
      * Some other fields will have to be queried anyway,
      * such as e.g. the speed --> safe mode driving
      */
-    protected ArrayList<Field> applicationFields = new ArrayList<>();
+    private ArrayList<Field> applicationFields = new ArrayList<>();
 
     /**
      * The index of the actual field to query.
@@ -75,23 +80,16 @@ public abstract class Device {
      */
     //protected int fieldIndex = 0;
 
-    protected int activityFieldIndex = 0;
+    private int activityFieldIndex = 0;
 
-    protected boolean pollerActive = false;
-    protected Thread pollerThread;
-
-    /**
-     * someThingWrong will be set when something goes wrong, usually a timeout.
-     * most command routines just won't run when someThingWrong is set
-     * someThingWrong can be reset only by calling initElm, but with toughness 100 this is the only thing it does :-)
-     */
-    boolean someThingWrong = false;
+    private boolean pollerActive = false;
+    Thread pollerThread;
 
     /**
      * lastInitProblem should be filled with a descriptive problem description by the initDevice implementation. In normal operation we don't care
      * because a device either initializes or not, but for testing a new device this can be very helpful.
      */
-    protected String lastInitProblem = "";
+    String lastInitProblem = "";
 
     /* ----------------------------------------------------------------
      * Abstract methods (to be implemented in each "real" device)
@@ -116,7 +114,7 @@ public abstract class Device {
                     @Override
                     public void run() {
                         // if the device has been initialised and we got an answer
-                        if(initDevice(0)) {
+                        if(initDevice(TOUGHNESS_HARD)) {
                             while (isPollerActive()) {
                                 MainActivity.debug("Device: inside poller thread");
                                 if (applicationFields.size()+activityFieldsScheduled.size()+activityFieldsAsFastAsPossible.size() == 0
@@ -190,7 +188,7 @@ public abstract class Device {
     }
 
     // query the device for the next filter
-    protected void queryNextFilter()
+    private void queryNextFilter()
     {
         if (applicationFields.size()+activityFieldsScheduled.size()+activityFieldsAsFastAsPossible.size() > 0)
         {
@@ -210,22 +208,36 @@ public abstract class Device {
                 }
                 else
                 {
-                    long start = Calendar.getInstance().getTimeInMillis();
+                    // long start = Calendar.getInstance().getTimeInMillis();
                     MainActivity.debug("Device: queryNextFilter: " + field.getSID());
+                    MainActivity.getInstance().dropDebugMessage(field.getSID());
 
                     // get the data
-                    Message message = requestField(field);
-                    // test if we got something
-                    if(message!=null && !someThingWrong) {
-                        Fields.getInstance().onMessageCompleteEvent(message);
-                    }
+                    Message message = requestFrame(field.getFrame());
 
-                    // reset if something went wrong ...
-                    // ... but only if we are not asked to stop!
-                    if (someThingWrong && BluetoothManager.getInstance().isConnected()) {
-                        MainActivity.debug("Device: something went wrong!");
-                        // we don't want to continue, so we need to stop the poller right now!
-                        initDevice(1, 2);
+                    // test if we got something
+                    if(!message.isError()) {
+                        //Fields.getInstance().onMessageCompleteEvent(message);
+                        message.onMessageCompleteEvent();
+                    } else {
+                        // one plain retry
+                        message = requestFrame(field.getFrame());
+                        if(!message.isError()) {
+                            message.onMessageCompleteEvent();
+                        } else {
+                            // failed after single retry
+                            // mark underlying fields as uodated to avoid queue clogging
+                            // the will have to get backk to the end of the queue
+                            message.onMessageIncompleteEvent();
+                            // reset if something went wrong ...
+                            // ... but only if we are not asked to stop!
+                            if (BluetoothManager.getInstance().isConnected()) {
+                                MainActivity.debug("Device: something went wrong!");
+                                // we don't want to continue, so we need to stop the poller right now!
+                                // TODO but are we? I don't believe this comment is correct is it?
+                                initDevice(TOUGHNESS_MEDIUM, 2); // toughness = 1, retries = 2
+                            }
+                        }
                     }
                 }
             }
@@ -242,6 +254,7 @@ public abstract class Device {
 
         synchronized (fields) {
             if(applicationFields.size()>0) {
+                /*
                 // sort the applicationFields
                 Collections.sort(applicationFields, new Comparator<Field>() {
                     @Override
@@ -249,10 +262,17 @@ public abstract class Device {
                         return (int) (lhs.getLastRequest()+lhs.getInterval() - (rhs.getLastRequest()+rhs.getInterval()));
                     }
                 });
-
+                // get the first field (the one with the smallest lastRequest time
+                Field field = applicationFields.get(0); */
 
                 // get the first field (the one with the smallest lastRequest time
-                Field field = applicationFields.get(0);
+                Field field = Collections.min(applicationFields, new Comparator<Field>() {
+                    @Override
+                    public int compare(Field lhs, Field rhs) {
+                        return (int) (lhs.getLastRequest()+lhs.getInterval() - (rhs.getLastRequest()+rhs.getInterval()));
+                    }
+                });
+
                 // return it's index in the global registered field array
                 if(field.isDue(referenceTime)) {
                     //MainActivity.debug(Calendar.getInstance().getTimeInMillis()/1000.+" > Chosing: "+field.getSID());
@@ -263,6 +283,7 @@ public abstract class Device {
             // take the next costum field
             if(activityFieldsScheduled.size()>0)
             {
+                /*
                 // sort the activityFields
                 Collections.sort(activityFieldsScheduled, new Comparator<Field>() {
                     @Override
@@ -272,7 +293,16 @@ public abstract class Device {
                 });
 
                 // get the first field (the one with the smallest lastRequest time
-                Field field = activityFieldsScheduled.get(0);
+                Field field = activityFieldsScheduled.get(0); */
+
+                // get the first field (the one with the smallest lastRequest time
+                Field field = Collections.min(activityFieldsScheduled, new Comparator<Field>() {
+                    @Override
+                    public int compare(Field lhs, Field rhs) {
+                        return (int) (lhs.getLastRequest()+lhs.getInterval() - (rhs.getLastRequest()+rhs.getInterval()));
+                    }
+                });
+
                 // return it's index in the global registered field array
                 if(field.isDue(referenceTime)) {
                     //MainActivity.debug(Calendar.getInstance().getTimeInMillis()/1000.+" > Chosing: "+field.getSID());
@@ -374,7 +404,7 @@ public abstract class Device {
      * For this reason we don't need to query these fields multiple times
      * in one turn.
      * @param _field    the field to be tested
-     * @return
+     * @return boolean  true if field's frame is already monitored
      */
     private boolean containsField(Field _field)
     {
@@ -564,34 +594,6 @@ public abstract class Device {
 
     }
 
-    /**
-     * This method removes a field from the list of monitored fields
-     * and unregisters the corresponding filter.
-     * @param field
-     */
-    /*public void removeActivityField(final Field field)
-    {
-        synchronized (fields) {
-            // only remove from the custom fields
-            if(activityFieldsScheduled.remove(field))
-            {
-                // remove it from the database if it is not on the other list
-                if(!containsApplicationField(field)) {
-                    // un-register it ...
-                    field.removeListener(CanzeDataSource.getInstance());
-                }
-                // launch the field registration asynchronously
-                (new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        unregisterFilter(field.getId());
-                    }
-                })).start();
-            }
-        }
-
-    }*/
-
     public void removeApplicationField(final Field field)
     {
         synchronized (fields) {
@@ -618,10 +620,10 @@ public abstract class Device {
 
         // remove depenand fields
         // ATTENTION; remove the field, despite if it is used by some other VF or not!
-        if(field.isVirtual())
-        {
-            // may break something, so please do it manually if really needed!
-        }
+        //if(field.isVirtual())
+        //{
+        // may break something, so please do it manually if really needed!
+        //}
     }
 
     /* ----------------------------------------------------------------
@@ -669,62 +671,58 @@ public abstract class Device {
         MainActivity.debug("Device: poller stopped");
     }
 
-    public boolean isPollerActive() {
+    private boolean isPollerActive() {
         return pollerActive;
     }
 
-    public void setPollerActive(boolean pollerActive) {
+    void setPollerActive(boolean pollerActive) {
         this.pollerActive = pollerActive;
     }
 
     /**
      * Request a field from the device depending on the
      * type of field.
-     * @param field     the field to be requested
-     * @return
+     * @param frame     the field to be requested
+     * @return Message  containing the response or an error
      */
-    public Message requestField(Field field)
+    public Message requestFrame(Frame frame)
     {
-        Message msg = null;
+        Message msg;
 
-        // check that only non virtual fields are being queried
-        if(!field.isVirtual()) {
-
-            if (field.isIsoTp()) msg = requestIsoTpFrame(field);
-            else msg = requestFreeFrame(field);
-
-            if (msg == null || msg.getData().isEmpty()) {
-                MainActivity.debug("Device: request for " + field.getSID() + " is empty ...");
-                // theory: when the answer is empty, the timeout is to low --> increase it!
-                // jm: but never beyond 2
-                if (intervalMultiplicator < maxIntervalMultiplicator) intervalMultiplicator += 0.1;
-                MainActivity.debug("Device: intervalMultiplicator = " + intervalMultiplicator);
-            } else {
-                // theory: when the answer is good, we might recover slowly --> decrease it!
-                // jm: but never below 1 ----> 2015-12-14 changed 10 1.3
-                if (intervalMultiplicator > minIntervalMultiplicator) intervalMultiplicator -= 0.01;
-                MainActivity.debug("Device: intervalMultiplicator = " + intervalMultiplicator);
-            }
-        }
+        if (frame.isIsoTp())
+            msg = requestIsoTpFrame(frame);
         else
-            MainActivity.debug("Device: ignoring virtual field " + field.getSID());
+            msg = requestFreeFrame(frame);
+
+        if (msg.isError()) {
+            MainActivity.debug("Device: request for " + frame.getRID() + " returned error " + msg.getError());
+            // theory: when the answer is empty, the timeout is to low --> increase it!
+            // jm: but never beyond 2
+            if (intervalMultiplicator < maxIntervalMultiplicator) intervalMultiplicator += 0.1;
+            MainActivity.debug("Device: intervalMultiplicator = " + intervalMultiplicator);
+        } else {
+            // theory: when the answer is good, we might recover slowly --> decrease it!
+            // jm: but never below 1 ----> 2015-12-14 changed 10 1.3
+            if (intervalMultiplicator > minIntervalMultiplicator) intervalMultiplicator -= 0.01;
+            MainActivity.debug("Device: intervalMultiplicator = " + intervalMultiplicator);
+        }
 
         return msg;
     }
 
     /**
      * Request a free-frame type field from the device
-     * @param field
-     * @return
+     * @param frame         The frame requested
+     * @return Message
      */
-    public abstract Message requestFreeFrame(Field field);
+    public abstract Message requestFreeFrame(Frame frame);
 
     /**
      * Request an ISO-TP frame type from the device
-     * @param field
-     * @return
+     * @param frame         The frame requested
+     * @return Message
      */
-    public abstract Message requestIsoTpFrame(Field field);
+    public abstract Message requestIsoTpFrame(Frame frame);
 
     public abstract boolean initDevice(int toughness);
 

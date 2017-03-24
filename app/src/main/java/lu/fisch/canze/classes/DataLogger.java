@@ -1,5 +1,6 @@
 package lu.fisch.canze.classes;
 
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
@@ -12,7 +13,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 
+import lu.fisch.canze.R;
 import lu.fisch.canze.activities.MainActivity;
 import lu.fisch.canze.actors.Field;
 import lu.fisch.canze.interfaces.FieldListener;
@@ -85,7 +88,9 @@ public class DataLogger  implements FieldListener {
 
     private long z = 2;
 
-    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+    SimpleDateFormat sdf = new SimpleDateFormat(MainActivity.getStringSingle(R.string.format_YMDHMS), Locale.getDefault());
+    // SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss", Locale.getDefault());
+
     // Checks if external storage is available for read and write
 
     public DataLogger() {
@@ -134,7 +139,7 @@ public class DataLogger  implements FieldListener {
             }
         }
         debug ( "DataLogger: activate > return " + result );
-       return result;
+        return result;
     }
 
 
@@ -198,7 +203,8 @@ public class DataLogger  implements FieldListener {
             // Long tsLong = System.currentTimeMillis(); // Method 1
             Long tsLong = new Date().getTime(); // Method 2
 
-            String DateString = getDateString( 0 , "yyyy-MM-dd-HH:mm:ss");
+            String DateString = getDateString( 0 , MainActivity.getStringSingle(R.string.format_YMDHMS));
+            // String DateString = getDateString( 0 , "yyyy-MM-dd-HH-mm-ss");
             tsLong >>= 8;
             String timestamp = tsLong.toString();
 
@@ -334,8 +340,8 @@ public class DataLogger  implements FieldListener {
     // getting updated by the corresponding reader class.
     @Override
     public void onFieldUpdateEvent(final Field field) {
-                String fieldId = field.getSID();
-                double fieldValue;
+        String fieldId = field.getSID();
+        double fieldValue;
 
         // Long tsLong = System.currentTimeMillis()/1000;
         // String timestamp = tsLong.toString();
@@ -344,68 +350,68 @@ public class DataLogger  implements FieldListener {
         // System.getProperty("line.separator");
 
         // log ( timestamp + ";" + fieldId + ";" + field.getPrintValue() );
-                // get the text field
-                switch (fieldId) {
-                    case SID_SoC:
+        // get the text field
+        switch (fieldId) {
+            case SID_SoC:
 //                  case SID_EVC_SoC:
-                        var_SoC = field.getPrintValue();
-                        // log ( "...SID_SoC: " + fieldValue );
-                        break;
-                    case SID_Pedal:
+                var_SoC = field.getPrintValue();
+                // log ( "...SID_SoC: " + fieldValue );
+                break;
+            case SID_Pedal:
 //                  case SID_EVC_Pedal:
-                        var_Pedal =  field.getPrintValue();
-                        // pb.setProgress((int) field.getValue());
-                        break;
-                    case SID_MeanEffectiveTorque:
-                        var_MeanEffectiveTorque = field.getPrintValue();
-                        // pb.setProgress((int) field.getValue());
-                        break;
-                    case SID_EVC_Odometer:
-                        odo = (int ) field.getValue();
-                        //odo = (int) Utils.kmOrMiles(field.getValue());
-                        var_Odometer = "" + odo;
-                        break;
-                    case SID_RealSpeed:
+                var_Pedal =  field.getPrintValue();
+                // pb.setProgress((int) field.getValue());
+                break;
+            case SID_MeanEffectiveTorque:
+                var_MeanEffectiveTorque = field.getPrintValue();
+                // pb.setProgress((int) field.getValue());
+                break;
+            case SID_EVC_Odometer:
+                odo = (int ) field.getValue();
+                //odo = (int) Utils.kmOrMiles(field.getValue());
+                var_Odometer = "" + odo;
+                break;
+            case SID_RealSpeed:
 //                  case SID_EVC_RealSpeed:
-                        //realSpeed = (Math.round(Utils.kmOrMiles(field.getValue()) * 10.0) / 10.0);
-                        realSpeed = (Math.round(field.getValue() * 10.0) / 10.0);
-                        var_realSpeed = "" + realSpeed;
-                        break;
-                    //case SID_PEB_Torque:
-                    //    tv = (TextView) findViewById(R.id.textTorque);
-                    //    break;
-                    case SID_EVC_TractionBatteryVoltage: // DC volts
-                        // save DC voltage for DC power purposes
-                        dcVolt = field.getValue();
-                        var_dcVolt = field.getPrintValue();
-                        break;
-                    case SID_EVC_TractionBatteryCurrent: // DC amps
-                        // calculate DC power
-                        dcPwr = Math.round(dcVolt * field.getValue() / 100.0) / 10.0;
-                        var_dcPwr = field.getPrintValue();
-                        break;
-                    case SID_Consumption:
-                        dcPwr = field.getValue();
-                        if (realSpeed > 5) {
-                            var_Consumption = "" + (Math.round(1000.0 * dcPwr / realSpeed) / 10.0);
-                        } else {
-                            var_Consumption = "-";
-                        }
-                        break;
-                    case SID_RangeEstimate:
-                        //int rangeInBat = (int) Utils.kmOrMiles(field.getValue());
-                        var_rangeInBat = "" + (int) field.getValue();
-                        break;
-                    case SID_DriverBrakeWheel_Torque_Request:
-                        // driverBrakeWheel_Torque_Request = field.getValue();
-                        break;
-                    case SID_ElecBrakeWheelsTorqueApplied:
-                        // double frictionBrakeTorque = driverBrakeWheel_Torque_Request - field.getValue();
-                        // a fair full red bar is estimated @ 1000 Nm
-                        // pb = (ProgressBar) findViewById(R.id.FrictionBreaking);
-                        // pb.setProgress((int) (frictionBrakeTorque * realSpeed));
-                        break;
+                //realSpeed = (Math.round(Utils.kmOrMiles(field.getValue()) * 10.0) / 10.0);
+                realSpeed = (Math.round(field.getValue() * 10.0) / 10.0);
+                var_realSpeed = "" + realSpeed;
+                break;
+            //case SID_PEB_Torque:
+            //    tv = (TextView) findViewById(R.id.textTorque);
+            //    break;
+            case SID_EVC_TractionBatteryVoltage: // DC volts
+                // save DC voltage for DC power purposes
+                dcVolt = field.getValue();
+                var_dcVolt = field.getPrintValue();
+                break;
+            case SID_EVC_TractionBatteryCurrent: // DC amps
+                // calculate DC power
+                dcPwr = Math.round(dcVolt * field.getValue() / 100.0) / 10.0;
+                var_dcPwr = field.getPrintValue();
+                break;
+            case SID_Consumption:
+                dcPwr = field.getValue();
+                if (realSpeed > 5) {
+                    var_Consumption = "" + (Math.round(1000.0 * dcPwr / realSpeed) / 10.0);
+                } else {
+                    var_Consumption = "-";
                 }
+                break;
+            case SID_RangeEstimate:
+                //int rangeInBat = (int) Utils.kmOrMiles(field.getValue());
+                var_rangeInBat = "" + (int) field.getValue();
+                break;
+            case SID_DriverBrakeWheel_Torque_Request:
+                // driverBrakeWheel_Torque_Request = field.getValue();
+                break;
+            case SID_ElecBrakeWheelsTorqueApplied:
+                // double frictionBrakeTorque = driverBrakeWheel_Torque_Request - field.getValue();
+                // a fair full red bar is estimated @ 1000 Nm
+                // pb = (ProgressBar) findViewById(R.id.FrictionBreaking);
+                // pb.setProgress((int) (frictionBrakeTorque * realSpeed));
+                break;
+        }
 
     }
 

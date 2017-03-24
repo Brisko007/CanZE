@@ -24,15 +24,14 @@ package lu.fisch.canze.activities;
 import android.os.Bundle;
 import android.widget.TextView;
 
-import java.util.ArrayList;
-
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
 
 // If you want to monitor changes, you must add a FieldListener to the fields.
 // For the simple activity, the easiest way is to implement it in the actitviy itself.
-public class TyresActivity extends CanzeActivity implements FieldListener {
+public class TyresActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     public static final String SID_TyreSpdPresMisadaption       = "673.0";
     public static final String SID_TyreFLState                  = "673.11";
@@ -48,64 +47,23 @@ public class TyresActivity extends CanzeActivity implements FieldListener {
     public static final String val_TyreState               []   = {"OK", "No info", "-", "-", "-", "Flat", "Under infl."};
     public static final String val_Unavailable                  = "-";
 
-    private ArrayList<Field> subscribedFields;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tyres);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // initialise the widgets
-        initListeners();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        removeListeners();
-    }
-
-    private void initListeners() {
-
-        subscribedFields = new ArrayList<>();
-
-        addListener(SID_TyreSpdPresMisadaption, 6000);
-        addListener(SID_TyreFLState, 6000);
-        addListener(SID_TyreFLPressure, 6000);
-        addListener(SID_TyreFRState, 6000);
-        addListener(SID_TyreFRPressure, 6000);
-        addListener(SID_TyreRLState, 6000);
-        addListener(SID_TyreRLPressure, 6000);
-        addListener(SID_TyreRRState, 6000);
-        addListener(SID_TyreRRPressure, 6000);
-    }
-
-    private void removeListeners () {
-        // empty the query loop
-        MainActivity.device.clearFields();
-        // free up the listeners again
-        for (Field field : subscribedFields) {
-            field.removeListener(this);
-        }
-        subscribedFields.clear();
-    }
-
-    private void addListener(String sid, int intervalMs) {
-        Field field;
-        field = MainActivity.fields.getBySID(sid);
-        if (field != null) {
-            field.addListener(this);
-            MainActivity.device.addActivityField(field, intervalMs);
-            subscribedFields.add(field);
-        } else {
-            MainActivity.toast("sid " + sid + " does not exist in class Fields");
-        }
-
+    protected void initListeners() {
+        MainActivity.getInstance().setDebugListener(this);
+        addField(SID_TyreSpdPresMisadaption, 6000);
+        addField(SID_TyreFLState, 6000);
+        addField(SID_TyreFLPressure, 6000);
+        addField(SID_TyreFRState, 6000);
+        addField(SID_TyreFRPressure, 6000);
+        addField(SID_TyreRLState, 6000);
+        addField(SID_TyreRLPressure, 6000);
+        addField(SID_TyreRRState, 6000);
+        addField(SID_TyreRRPressure, 6000);
     }
 
     // This is the event fired as soon as this the registered fields are

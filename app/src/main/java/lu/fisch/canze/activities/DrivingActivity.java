@@ -21,6 +21,7 @@
 
 package lu.fisch.canze.activities;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -34,12 +35,16 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.TextView;
-import java.util.ArrayList;
+
+import java.util.Locale;
+
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
+import lu.fisch.canze.activities.MainActivity;
 
-public class DrivingActivity extends CanzeActivity implements FieldListener {
+public class DrivingActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     // for ISO-TP optimization to work, group all identical CAN ID's together when calling addListener
 
@@ -65,8 +70,6 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
     private double driverBrakeWheel_Torque_Request  = 0;
     private double coasting_Torque                  = 0;
 
-    private ArrayList<Field> subscribedFields;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,69 +86,28 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
         if (MainActivity.milesMode) {
             TextView tv;
             tv = (TextView) findViewById(R.id.textSpeedUnit);
-            tv.setText(getResources().getString(R.string.unit_SpeedMi));
+            tv.setText(MainActivity.getStringSingle(R.string.unit_SpeedMi));
             tv = (TextView) findViewById(R.id.textConsumptionUnit);
-            tv.setText(getResources().getString(R.string.unit_ConsumptionMi));
+            tv.setText(MainActivity.getStringSingle(R.string.unit_ConsumptionMi));
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // initialise the widgets
-        initListeners();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        removeListeners();
-    }
-
-    private void initListeners() {
-
-        subscribedFields = new ArrayList<>();
-
+    protected void initListeners() {
         getDestOdo();
 
         // Make sure to add ISO-TP listeners grouped by ID
-
-        addListener(SID_Consumption, 0);
-        addListener(SID_Pedal, 0);
-        addListener(SID_MeanEffectiveTorque, 0);
-        addListener(SID_DriverBrakeWheel_Torque_Request, 0);
-        addListener(SID_ElecBrakeWheelsTorqueApplied, 0);
-        addListener(SID_Coasting_Torque, 0);
-        addListener(SID_TotalPotentialResistiveWheelsTorque, 7200);
-        addListener(SID_RealSpeed, 0);
-        addListener(SID_SoC, 7200);
-        addListener(SID_RangeEstimate, 7200);
-        addListener(SID_EVC_Odometer, 6000);
-    }
-
-
-    private void removeListeners () {
-        // empty the query loop
-        MainActivity.device.clearFields();
-        // free up the listeners again
-        for (Field field : subscribedFields) {
-            field.removeListener(this);
-        }
-        subscribedFields.clear();
-    }
-
-
-    private void addListener(String sid, int intervalMs) {
-        Field field;
-        field = MainActivity.fields.getBySID(sid);
-        if (field != null) {
-            field.addListener(this);
-            MainActivity.device.addActivityField(field, intervalMs);
-            subscribedFields.add(field);
-        } else {
-            MainActivity.toast("sid " + sid + " does not exist in class Fields");
-        }
+        MainActivity.getInstance().setDebugListener(this);
+        addField(SID_Consumption, 0);
+        addField(SID_Pedal, 0);
+        addField(SID_MeanEffectiveTorque, 0);
+        addField(SID_DriverBrakeWheel_Torque_Request, 0);
+        addField(SID_ElecBrakeWheelsTorqueApplied, 0);
+        addField(SID_Coasting_Torque, 0);
+        addField(SID_TotalPotentialResistiveWheelsTorque, 7200);
+        addField(SID_RealSpeed, 0);
+        addField(SID_SoC, 7200);
+        addField(SID_RangeEstimate, 7200);
+        addField(SID_EVC_Odometer, 6000);
     }
 
     void setDistanceToDestination () {
@@ -154,17 +116,18 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
         final Context context = DrivingActivity.this;
         AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(context);
         LayoutInflater inflater = getLayoutInflater();
-        final View distToDestView = inflater.inflate(R.layout.set_dist_to_dest, null);
+        // we allow this SuppressLint as this is a pop up Dialog
+        @SuppressLint("InflateParams")
+        final View distToDestView = inflater.inflate(R.layout.alert_dist_to_dest, null);
 
         // set dialog message
         alertDialogBuilder
                 .setView(distToDestView)
-                .setTitle("REMAINING DISTANCE")
-                .setMessage("Please enter the distance to your destination. The display will estimate " +
-                        "the remaining driving distance available in your battery on arrival")
+                .setTitle(R.string.prompt_Distance)
+                .setMessage(MainActivity.getStringSingle(R.string.prompt_SetDistance))
 
                 .setCancelable(true)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                .setPositiveButton(R.string.default_Ok, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                         imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT,0);
@@ -175,7 +138,7 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                         dialog.cancel();
                     }
                 })
-                .setNeutralButton("Double", new DialogInterface.OnClickListener() {
+                .setNeutralButton(R.string.button_Double, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                         imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT,0);
@@ -186,7 +149,7 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                         dialog.cancel();
                     }
                 })
-                .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                .setNegativeButton(R.string.default_Cancel, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int id) {
                         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                         imm.toggleSoftInput(InputMethodManager.SHOW_IMPLICIT,0);
@@ -268,7 +231,7 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                         break;
                     case SID_MeanEffectiveTorque:
                         pb = (ProgressBar) findViewById(R.id.MeanEffectiveAccTorque);
-                        pb.setProgress((int) (field.getValue() * 9.3)); // --> translate from motor torque to wheel torque
+                        pb.setProgress((int) (field.getValue() * MainActivity.reduction)); // --> translate from motor torque to wheel torque
                         break;
                     case SID_EVC_Odometer:
                         odo = (int ) field.getValue();
@@ -286,7 +249,8 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                         double dcPwr = field.getValue();
                         tv = (TextView) findViewById(R.id.textConsumption);
                         if (realSpeed > 5) {
-                            tv.setText("" + (Math.round(1000.0 * dcPwr / realSpeed) / 10.0));
+                            tv.setText(String.format(Locale.getDefault(), "%.1f", 100.0 * dcPwr / realSpeed));
+                            // tv.setText("" + (Math.round(1000.0 * dcPwr / realSpeed) / 10.0));
                         } else {
                             tv.setText("-");
                         }
@@ -310,7 +274,7 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                         break;
 
                     case SID_Coasting_Torque:
-                        coasting_Torque = field.getValue() * 9.3; // it seems this torque is given in motor torque, not in wheel torque. Maybe another adjustment by a factor 05 is needed (two wheels)
+                        coasting_Torque = field.getValue() * MainActivity.reduction; // this torque is given in motor torque, not in wheel torque
                         break;
 
                     case SID_TotalPotentialResistiveWheelsTorque:
@@ -329,11 +293,8 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
                 }
                 // set regular new content, all exeptions handled above
                 if (tv != null) {
-                    tv.setText("" + (Math.round(field.getValue() * 10.0) / 10.0));
+                    tv.setText(String.format(Locale.getDefault(), "%.1f", field.getValue()));
                 }
-
-                tv = (TextView) findViewById(R.id.textDebug);
-                tv.setText(fieldId);
             }
         });
 
@@ -341,7 +302,8 @@ public class DrivingActivity extends CanzeActivity implements FieldListener {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
+        // Inflate the menu; this adds items to the action bar if it is present. This menu
+        // is another way to set the distance
         getMenuInflater().inflate(R.menu.menu_driving, menu);
         return true;
     }

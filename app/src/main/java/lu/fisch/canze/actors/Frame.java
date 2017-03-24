@@ -21,23 +21,50 @@
 
 package lu.fisch.canze.actors;
 
+import java.util.ArrayList;
+import java.util.Calendar;
+
 /**
  * Frame
  */
 public class Frame {
 
     private int id;
+    private String responseId = null;
     private int interval; // in ms
     private Ecu sendingEcu;
+    private final ArrayList<Field> fields = new ArrayList<>();
+    private final ArrayList<Field> queriedFields = new ArrayList<>();
+    private Frame containingFrame = null;
 
-    public Frame (int id, int interval, Ecu sendingEcu) {
+    protected long lastRequest = 0;
+
+
+    public Frame (int id, int interval, Ecu sendingEcu, String responseId, Frame containingFrame) {
         this.id = id;
         this.interval = interval;
         this.sendingEcu = sendingEcu;
+        this.responseId = responseId;
+        this.containingFrame = containingFrame;
     }
 
-    public int getId() {
-        return id;
+    /* --------------------------------
+     * Scheduling
+     * ------------------------------ */
+
+    public void updateLastRequest()
+    {
+        lastRequest = Calendar.getInstance().getTimeInMillis();
+    }
+
+    public long getLastRequest()
+    {
+        return lastRequest;
+    }
+
+    public boolean isDue(long referenceTime)
+    {
+        return lastRequest+interval<referenceTime;
     }
 
     public int getInterval() {
@@ -46,8 +73,66 @@ public class Frame {
 
     public void setInterval (int interval) { this.interval = interval; }
 
+    public boolean isIsoTp()
+    {
+        if (this.responseId == null) return false;
+        return !responseId.trim().isEmpty();
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public String getRID()
+    {
+        if(responseId!=null && !responseId.trim().isEmpty())
+            return (getHexId()+"."+responseId.trim()).toLowerCase();
+        else
+            return (getHexId()).toLowerCase();
+    }
+
+
+    public String getHexId() {
+        return Integer.toHexString(id);
+    }
+
     public Ecu getSendingEcu() {
         return sendingEcu;
+    }
+
+    public String getResponseId() {
+        return responseId;
+    }
+
+    public ArrayList<Field> getAllFields() {
+        return fields;
+    }
+
+    public void addField(Field field) {
+        this.fields.add(field);
+    }
+
+    public ArrayList<Field> getQueriedFields() {
+        return queriedFields;
+    }
+
+    public void addQueriedField(Field field) {
+        this.queriedFields.add(field);
+    }
+
+    public void removeQueriedField(Field field) {
+        this.queriedFields.remove(field);
+    }
+
+    public String getRequestId () {
+        if (responseId.compareTo("") == 0) return ("");
+        char[] tmpChars = responseId.toCharArray();
+        tmpChars[0] -= 0x04;
+        return String.valueOf(tmpChars);
+    }
+
+    public Frame getContainingFrame() {
+        return containingFrame;
     }
 
 }

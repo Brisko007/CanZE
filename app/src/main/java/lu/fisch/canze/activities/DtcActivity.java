@@ -21,18 +21,23 @@
 
 package lu.fisch.canze.activities;
 
-import android.view.View.OnClickListener;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Locale;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Dtcs;
@@ -40,13 +45,22 @@ import lu.fisch.canze.actors.Ecu;
 import lu.fisch.canze.actors.Ecus;
 import lu.fisch.canze.actors.Field;
 import lu.fisch.canze.actors.Fields;
+import lu.fisch.canze.actors.Frame;
+import lu.fisch.canze.actors.Frames;
 import lu.fisch.canze.actors.Message;
+import lu.fisch.canze.actors.StoppableThread;
 import lu.fisch.canze.bluetooth.BluetoothManager;
+
+import static lu.fisch.canze.activities.MainActivity.debug;
 
 
 public class DtcActivity  extends CanzeActivity {
 
     private TextView textView;
+    BufferedWriter bufferedDumpWriter = null;
+    boolean dumpInProgress = false;
+
+    private StoppableThread queryThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,7 +81,6 @@ public class DtcActivity  extends CanzeActivity {
         btnQuery.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                //MainActivity.toast("On Button Click : " + "\n" + String.valueOf(spinnerEcu.getSelectedItem()));
                 doQueryEcu(Ecus.getInstance().getByMnemonic(String.valueOf(spinnerEcu.getSelectedItem())));
             }
         });
@@ -76,15 +89,22 @@ public class DtcActivity  extends CanzeActivity {
         btnClear.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                //MainActivity.toast("On Button Click : " + "\n" + String.valueOf(spinnerEcu.getSelectedItem()));
                 doClearEcu(Ecus.getInstance().getByMnemonic(String.valueOf(spinnerEcu.getSelectedItem())));
+            }
+        });
+
+        final Button btnDiag = (Button) findViewById(R.id.ecuDiag);
+        btnDiag.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                doDiagEcu(Ecus.getInstance().getByMnemonic(String.valueOf(spinnerEcu.getSelectedItem())));
             }
         });
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                appendResult("\n\nPlease wait while the poller thread is stopped...\n");
+                appendResult(R.string.message_PollerStopping);
 
                 if (MainActivity.device != null) {
                     // stop the poller thread
@@ -92,126 +112,340 @@ public class DtcActivity  extends CanzeActivity {
                 }
 
                 if (!BluetoothManager.getInstance().isConnected()) {
-                    appendResult("\nNo connection. Close this screen and make sure your device paired and connected\n");
+                    appendResult(R.string.message_NoConnection);
                     return;
                 }
-
-                appendResult("\nReady");
+                appendResult(MainActivity.getStringSingle(R.string.message_Ready));
             }
         }).start();
     }
 
-    void doQueryEcu(Ecu ecu) {
-        Field field;
-        String filter;
+    protected void initListeners () {}
+
+    void doQueryEcu(final Ecu ecu) {
 
         clearResult();
-
         appendResult("Query " + ecu.getName() + " (renault ID:" + ecu.getRenaultId() + ")\n");
 
-        // get the from ID from the selected ECU
-        filter = Integer.toHexString(ecu.getFromId());
+        // here initialize this particular ECU diagnostics fields
+        try {
+            Object diagEcu = Class.forName("lu.fisch.canze.actors.EcuDiag" + ecu.getMnemonic()).newInstance();
+            java.lang.reflect.Method methodLoad;
 
-        // compile the field query and get the Field object
-        field = Fields.getInstance().getBySID(filter + ".5902ff.0"); // get DTC
-        if (field == null) {
-            appendResult("Field does not exist\n");
-            return;
+            methodLoad = diagEcu.getClass().getMethod("load");
+            methodLoad.invoke(diagEcu);
+        } catch (Exception e) {
+            appendResult(R.string.message_NoEcuDefinition);
         }
+
 
         // re-initialize the device
-        appendResult("\nSending initialisation sequence\n");
-        if (!MainActivity.device.initDevice(1)) {
-            appendResult("\nInitialisation failed\n");
-            return;
-        }
+        appendResult(R.string.message_SendingInit);
 
-        // query the Field
-        Message message = MainActivity.device.requestField(field);
-        if (message == null) {
-            appendResult("Msg is null. Is the car switched on?\n");
-            return;
-        }
-
-        String backRes = message.getData();
-        if (backRes == null) {
-            appendResult("Data is null. This should never happen, please report\n");
-            return;
-        }
-
-        // check the response
-        if (!backRes.startsWith("59")) {
-            appendResult("Query send, but unexpected result received:[" + backRes + "\n");
-            return;
-        }
-
-        // loop trough all DTC's
-        boolean onePrinted = false;
-        for (int i = 6; i < backRes.length() - 7; i += 8) {
-            int bits = Integer.parseInt(backRes.substring(i + 6, i + 8), 16);
-            // exclude 50 / 10 as it means something like "I have this DTC code, but I have never tested it"
-            if (bits != 0x50 && bits != 0x10) {
-                onePrinted = true;
-                appendResult("\nDTC" + backRes.substring(i, i + 6) + ":" + backRes.substring(i + 6, i + 8) + ":" + Dtcs.getDescription(backRes.substring(i, i + 6)));
-                if ((bits & 0x01) != 0) appendResult(" tstFail");
-                if ((bits & 0x02) != 0) appendResult(" tstFailThisOp");
-                if ((bits & 0x04) != 0) appendResult(" pendingDtc");
-                if ((bits & 0x08) != 0) appendResult(" confirmedDtc");
-                if ((bits & 0x10) != 0) appendResult(" noCplSinceClear");
-                if ((bits & 0x20) != 0) appendResult(" faildSinceClear");
-                if ((bits & 0x40) != 0) appendResult(" tstNtCpl");
-                if ((bits & 0x80) != 0) appendResult(" WrnLght");
+        // try to stop previous thread
+        if(queryThread!=null)
+            if(queryThread.isAlive()) {
+                queryThread.tryToStop();
+                try {
+                    queryThread.join();
+                }
+                catch(Exception e)
+                {
+                    MainActivity.debug(e.getMessage());
+                }
             }
-        }
-        if (!onePrinted) appendResult("\nNo active DTCs\n");
+
+        queryThread = new StoppableThread(new Runnable() {
+            @Override
+            public void run() {
+
+                Field field;
+                String filter;
+                Message message;
+                String backRes;
+
+                // get the from ID from the selected ECU
+                filter = Integer.toHexString(ecu.getFromId());
+
+
+                if (!MainActivity.device.initDevice(1)) {
+                    appendResult(R.string.message_InitFailed);
+                    return;
+                }
+
+                // still trying desperately to get to the BCB!!!1
+                if (filter.equals("793")) {
+                    // we are a tester
+                    appendResult(R.string.message_StartTestSession);
+                    field = Fields.getInstance().getBySID(filter + ".7e01.0");
+                    if (field == null) {
+                        appendResult(R.string.message_NoTestSessionField);
+                        return;
+                    }
+
+                    // query the Field
+                    message = MainActivity.device.requestFrame(field.getFrame());
+                    if (message.isError()) {
+                        appendResult(message.getError() + "\n");
+                        return;
+                    }
+
+                    backRes = message.getData();
+                    // check the response
+                    if (!backRes.toLowerCase().startsWith("7e")) {
+                        appendResult(MainActivity.getStringSingle(R.string.message_UnexpectedResult) + backRes + "]\n");
+                        return;
+                    }
+
+                    // start a tester session
+                    appendResult(R.string.message_StartTestSession);
+                    field = Fields.getInstance().getBySID(filter + ".5081.0");
+                    if (field == null) {
+                        appendResult(R.string.message_NoTestSessionField);
+                        return;
+                    }
+
+                    // query the Field
+                    message = MainActivity.device.requestFrame(field.getFrame());
+                    if (message.isError()) {
+                        appendResult(message.getError() + "\n");
+                        return;
+                    }
+
+                    backRes = message.getData();
+                    // check the response
+                    if (!backRes.startsWith("50")) {
+                        appendResult(MainActivity.getStringSingle(R.string.message_UnexpectedResult) + backRes + "]\n");
+                        return;
+                    }
+
+                    // start a tester2 session
+                    appendResult(R.string.message_StartTestSession);
+                    field = Fields.getInstance().getBySID(filter + ".50c0.0");
+                    if (field == null) {
+                        appendResult(R.string.message_NoTestSessionField);
+                        return;
+                    }
+
+                    // query the Field
+                    message = MainActivity.device.requestFrame(field.getFrame());
+                    if (message.isError()) {
+                        appendResult(message.getError() + "\n");
+                        return;
+                    }
+
+                    backRes = message.getData();
+                    // check the response
+                    if (!backRes.startsWith("50")) {
+                        appendResult(MainActivity.getStringSingle(R.string.message_UnexpectedResult) + backRes + "]\n");
+                        return;
+                    }
+                }
+
+                // compile the field query and get the Field object
+                appendResult(R.string.message_GetDtcs);
+                field = Fields.getInstance().getBySID(filter + "." + ecu.getGetDtcs() + ".0"); // get DTC
+                if (field == null) {
+                    appendResult(R.string.message_NoGetDtcsField);
+                    return;
+                }
+
+                // query the Field
+                message = MainActivity.device.requestFrame(field.getFrame());
+                if (message.isError()) {
+                    appendResult(message.getError() + "\n");
+                    return;
+                }
+
+                backRes = message.getData();
+                // check the response
+                if (!backRes.startsWith("59")) {
+                    appendResult(MainActivity.getStringSingle(R.string.message_UnexpectedResult) + backRes + "]\n");
+                    return;
+                }
+
+                // loop trough all DTC's
+                // format of the message is
+                // blocks of 4 bytes
+                //   first 2 bytes is the DTC
+                //     first nibble of DTC is th P0 etc encoding, but we are nit using that
+                //   next byte is the test that triggered the DTC
+                //   next byte contains the flags
+                // All decoding is done in the Dtcs class
+                boolean onePrinted = false;
+                for (int i = 6; i < backRes.length() - 7; i += 8) {
+                    // see if we need to stop right now
+                    if(((StoppableThread) Thread.currentThread()).isStopped()) return;
+
+                    int flags = Integer.parseInt(backRes.substring(i + 6, i + 8), 16);
+                    // exclude 50 / 10 as it means something like "I have this DTC code, but I have never tested it"
+                    if (flags != 0x50 && flags != 0x10) {
+                        onePrinted = true;
+                        appendResult(
+                                "\n*** DTC" + backRes.substring(i, i + 6) + " (" + Dtcs.getInstance().getDisplayCodeById (backRes.substring(i, i + 6)) + ") ***\n"
+                                        + Dtcs.getInstance().getDescriptionById(backRes.substring(i, i + 6))
+                                        + "\nFlags:" + Dtcs.getInstance().getFlagDescription(flags)
+                        );
+                    }
+                }
+                if (!onePrinted) appendResult(R.string.message_NoActiveDtcs);
+            }
+
+        });
+        queryThread.start();
     }
 
-    void doClearEcu(Ecu ecu) {
-        Field field;
-        String filter;
+    void doClearEcu(final Ecu ecu) {
 
         clearResult();
 
-        // get the from ID from the selected ECU
-        filter = Integer.toHexString(ecu.getFromId());
-        appendResult("Clear " + ecu.getName() + " (" + filter + ")\n");
+        appendResult(MainActivity.getStringSingle(R.string.message_clear) + ecu.getName() + " (renault ID:" + ecu.getRenaultId() + ")\n");
 
-        // compile the field query and get the Field object
-        field = Fields.getInstance().getBySID(filter + ".54.0"); // get DTC Clear
-        if (field == null) {
-            appendResult("- field does not exist\n");
-            return;
-        }
+        // try to stop previous thread
+        if(queryThread!=null)
+            if(queryThread.isAlive()) {
+                queryThread.tryToStop();
+                try {
+                    queryThread.join();
+                }
+                catch(Exception e)
+                {
+                    MainActivity.debug(e.getMessage());
+                }
+            }
 
-        // re-initialize the device
-        appendResult("\nSending initialisation sequence\n");
-        if (!MainActivity.device.initDevice(1)) {
-            appendResult("\nInitialisation failed\n");
-            return;
-        }
+        queryThread = new StoppableThread(new Runnable() {
+            @Override
+            public void run() {
 
-        // query the Field
-        Message message = MainActivity.device.requestField(field);
-        if (message == null) {
-            appendResult("Msg is null. Is the car switched on?\n");
-            return;
-        }
+                Field field;
+                Frame frame;
+                String filter;
 
-        String backRes = message.getData();
-        if (backRes == null) {
-            appendResult("Data is null. This should never happen, please report\n");
-            return;
-        }
+                // get the from ID from the selected ECU
+                filter = Integer.toHexString(ecu.getFromId());
 
-        // check the response
-        if (!backRes.startsWith("54")) {
-            appendResult("Clear code send, but unexpected result received:[" + backRes + "\n");
-            return;
-        }
 
-        appendResult("Clear seems succesful, please query DTCs\n");
+                // compile the field query and get the Field object
+                field = Fields.getInstance().getBySID(filter + ".54.0"); // get DTC Clear
+                if (field == null) {
+                    appendResult(R.string.message_NoClearDtcField);
+                    return;
+                }
+                frame = field.getFrame();
+
+                // re-initialize the device
+                appendResult(R.string.message_SendingInit);
+                if (!MainActivity.device.initDevice(1)) {
+                    appendResult(R.string.message_InitFailed);
+                    return;
+                }
+
+                // query the Field
+                Message message = MainActivity.device.requestFrame (frame);
+                if (message.isError()) {
+                    appendResult(R.string.message_MessageNull);
+                    return;
+                }
+
+                String backRes = message.getData();
+                // check the response
+                if (!backRes.startsWith("54")) {
+                    appendResult(MainActivity.getStringSingle(R.string.message_UnexpectedResult) + backRes + "]\n");
+                    return;
+                }
+
+                appendResult(R.string.message_ClearSuccessful);
+            }
+
+        });
+        queryThread.start();
     }
 
+
+    void doDiagEcu(final Ecu ecu) {
+
+        clearResult();              // clear the screen
+
+        // here initialize this particular ECU diagnostics fields
+        try {
+            Object diagEcu = Class.forName("lu.fisch.canze.actors.EcuDiag" + ecu.getMnemonic()).newInstance();
+            java.lang.reflect.Method methodLoad;
+
+            methodLoad = diagEcu.getClass().getMethod("load");
+            methodLoad.invoke(diagEcu);
+
+            //Frames.getInstance().load (diagEcu.framesString ());
+            //Fields.getInstance().load (diagEcu.fieldsString ());
+        } catch (Exception e) {
+            appendResult(R.string.message_NoEcuDefinition2);
+            return;
+        }
+
+        appendResult(R.string.message_SendingInit);
+
+        // try to stop previous thread
+        if(queryThread!=null)
+            if(queryThread.isAlive()) {
+                queryThread.tryToStop();
+                try {
+                    queryThread.join();
+                }
+                catch(Exception e)
+                {
+                    MainActivity.debug(e.getMessage());
+                }
+            }
+
+        queryThread = new StoppableThread(new Runnable() {
+            @Override
+            public void run() {
+
+                // re-initialize the device
+                if (!MainActivity.device.initDevice(1)) {
+                    appendResult(R.string.message_InitFailed);
+                    return;
+                }
+
+                createDump(ecu);
+
+                for (Frame frame : Frames.getInstance().getAllFrames()) {
+                    // see if we need to stop right now
+                    if(((StoppableThread) Thread.currentThread()).isStopped()) return;
+
+                    if (frame.getContainingFrame() != null) { // only use subframes
+
+                        // query the Frame
+                        Message message = MainActivity.device.requestFrame(frame);
+                        if (!message.isError()) {
+                            // process the frame by going through all the containing fields
+                            // setting their values and notifying all listeners (there should be none)
+                            // Fields.getInstance().onMessageCompleteEvent(message);
+                            message.onMessageCompleteEvent();
+
+                            for (Field field : frame.getAllFields()) {
+                                if (field.isString()) {
+                                    appendResult(field.getName() + ":" + field.getStringValue() + "\n");
+                                } else if (field.isList()) {
+                                    appendResult(field.getName() + ":" + field.getListValue() + "\n");
+                                } else {
+                                    appendResult(field.getName() + ":" + field.getValue() + field.getUnit() + "\n");
+                                }
+                            }
+                        } else {
+                            appendResult(frame.getHexId() + "." + frame.getResponseId() + ":" + message.getError() + "\n");
+                            if (!MainActivity.device.initDevice(1)) {
+                                appendResult(MainActivity.getStringSingle(R.string.message_InitFailed));
+                                return;
+                            }
+                        }
+                    }
+                }
+                closeDump();
+            }
+        });
+        queryThread.start();
+    }
 
     // Ensure all UI updates are done on the UiThread
     private void clearResult() {
@@ -224,6 +458,7 @@ public class DtcActivity  extends CanzeActivity {
     }
 
     private void appendResult(String str) {
+        if ( dumpInProgress) log (str);
         final String localStr = str;
         runOnUiThread(new Runnable() {
             @Override
@@ -233,69 +468,118 @@ public class DtcActivity  extends CanzeActivity {
         });
     }
 
-    // ELM functions not available or reachable through the device Class
-    private void sendNoWait(String command) {
-        if (!BluetoothManager.getInstance().isConnected()) return;
-        if (command != null) {
-            BluetoothManager.getInstance().write(command);
+    private void appendResult(int strResource) {
+        final String localStr = MainActivity.getStringSingle(strResource);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                textView.append(localStr);
+            }
+        });
+    }
+
+    private void log(String text)
+    {
+        try {
+            bufferedDumpWriter.append(text);
+            bufferedDumpWriter.append(System.getProperty("line.separator"));
+        }
+        catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
-    private String getResponseUntil(int timeout) {
-        return getResponseUntil(timeout, '\0');
+    public boolean isExternalStorageWritable() {
+        String SDstate = Environment.getExternalStorageState();
+        return ( Environment.MEDIA_MOUNTED.equals(SDstate));
     }
 
-    private String getResponseUntil(int timeout, char stopChar) {
-        long end = Calendar.getInstance().getTimeInMillis() + timeout;
-        boolean lastWasCr = false;
-        String result = "";
-        while (Calendar.getInstance().getTimeInMillis() <= end) {
-            try {
-                // read a byte
-                if (BluetoothManager.getInstance().isConnected() && BluetoothManager.getInstance().available() > 0) {
-                    //MainActivity.debug("Reading ...");
-                    int data = BluetoothManager.getInstance().read();
-                    // if it is a real one
-                    if (data != -1) {
-                        // we might be JUST approaching the TIMEOUT, so give it a chance to get to the EOM,
-                        // end = end + 2;
-                        // convert it to a character
-                        char ch = (char) data;
-                        if (ch == '\r') {
-                            result += "\u2022";
-                            lastWasCr = true;
-                        } else {
-                            if (lastWasCr) result += "\n";
-                            result += ch;
-                            lastWasCr = false;
-                        }
-                        // quit on stopchar after making sure the stop character is added to the output and
-                        // a possible newline was indeed added
-                        if (ch == stopChar) return result;
-                    }
-                } else {
-                    // let the system breath if there was no data
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+    private void createDump (Ecu ecu) {
 
-            } catch (IOException e) {
-                // ignore: e.printStackTrace();
+        dumpInProgress = false;
+        SimpleDateFormat sdf = new SimpleDateFormat(MainActivity.getStringSingle(R.string.format_YMDHMS), Locale.getDefault());
+
+
+        // ensure that there is a CanZE Folder in SDcard
+        if ( ! isExternalStorageWritable()) {
+            debug ( "DiagDump: SDcard not writeable");
+            return;
+        }
+
+        String file_path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/CanZE/";
+        File dir = new File(file_path);
+        if (!dir.exists()) {
+            if (!dir.mkdirs()) {
+                debug("DiagDump: Can't create directory:" + file_path);
+                return;
             }
         }
-        // quit on timeout
-        return result;
+        debug("DiagDump: file_path:" + file_path);
+
+        // SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+        String exportdataFileName = file_path + ecu.getMnemonic() + "-" + sdf.format(Calendar.getInstance().getTime()) + ".txt";
+
+        File logFile = new File(exportdataFileName);
+        if (!logFile.exists()) {
+            try {
+                if (!logFile.createNewFile()) {
+                    debug("DiagDump: Can't create file:" + exportdataFileName);
+                    return;
+                }
+                debug("DiagDump: NewFile:" +  exportdataFileName );
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            //BufferedWriter for performance, true to set append to file flag
+            bufferedDumpWriter = new BufferedWriter(new FileWriter(logFile, true));
+            dumpInProgress = true;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
+
+
+    private void closeDump () {
+        try {
+            if (dumpInProgress) bufferedDumpWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     // UI elements
     @Override
     protected void onDestroy() {
+
+        // stop the query thread if still running
+        if(queryThread!=null)
+            if(queryThread.isAlive()) {
+                queryThread.tryToStop();
+                try {
+                    queryThread.join();
+                }
+                catch(Exception e)
+                {
+                    MainActivity.debug(e.getMessage());
+                }
+            }
+
+        closeDump();
+
+        // Reload the frame & timings
+        Frames.getInstance().load();
+        Fields.getInstance().load();
+
         // restart the poller
-        if (MainActivity.device != null)
+        if (MainActivity.device != null) {
             MainActivity.device.initConnection();
+            // register application wide fields
+            MainActivity.getInstance().registerApplicationFields();
+        }
 
         super.onDestroy();
     }
@@ -306,52 +590,5 @@ public class DtcActivity  extends CanzeActivity {
         getMenuInflater().inflate(R.menu.menu_empty, menu);
         return true;
     }
-/*
-    private int ecuMnemonicToId(String ecuMnemonic) { // this function should be moved to a separate class, or a function in Fields
-        Ecu ecu = Ecus.getInstance().getByMnemonic(ecuMnemonic);
-        return ecu == null ? 0 : ecu.getToId();
 
-        switch (ecu) {
-            case "BCB":
-                return 0x793;
-            case "CLIMA":
-            case "CLIMBOX":
-                return 0x764;
-            case "CLUSTER":
-                return 0x763;
-            case "EVC":
-            case "EVCBRIDGE":
-            case "SCH":
-                return 0x7ec;
-            case "TCU":
-                return 0x7da;
-            case "LBC":
-                return 0x7bb;
-            case "PEB":
-                return 0x77e;
-            case "AIBAG":
-            case "AIRBAG":
-                return 0x772;
-            case "USM":
-            case "UCM":
-            case "UPC":
-                return 0x76d;
-            case "EPS":
-                return 0x762;
-            case "ABS":
-            case "ESC":
-                return 0x760;
-            case "UBP":
-                return 0x7bc;
-            case "BCM":
-            case "UCH":
-                return 0x765;
-            case "UPA":
-                return 0x76e;
-            case "LBC2":
-                return 0x76e;
-        }
-        return 0;
-
-    } */
 }

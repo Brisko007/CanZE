@@ -1,4 +1,4 @@
-<RelativeLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
@@ -13,7 +13,8 @@
 
     <ScrollView
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="0dp"
+        android:layout_weight="1">
 
         <LinearLayout
             android:layout_width="fill_parent"
@@ -39,8 +40,8 @@
                         />
                     <TextView
                         android:id="@+id/textChaStatus"
-                        android:text="@string/default_ChaStatus"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -53,8 +54,8 @@
                         />
                     <TextView
                         android:id="@+id/textPlug"
-                        android:text="@string/default_Plug"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -67,8 +68,8 @@
                         />
                     <TextView
                         android:id="@+id/text_max_pilot"
-                        android:text="@string/default_max_pilot"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -81,8 +82,8 @@
                         />
                     <TextView
                         android:id="@+id/textPhases"
-                        android:text="@string/default_Phases"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -95,8 +96,8 @@
                         />
                     <TextView
                         android:id="@+id/textAvChPwr"
-                        android:text="@string/default_AvChPwr"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -109,8 +110,8 @@
                         />
                     <TextView
                         android:id="@+id/textTTF"
-                        android:text="@string/default_TTF"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -136,8 +137,8 @@
                         />
                     <TextView
                         android:id="@+id/textUserSOC"
-                        android:text="@string/default_SOC"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -149,13 +150,13 @@
                         />
                     <TextView
                         android:id="@+id/textRealSOC"
-                        android:text="@string/default_SOC"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
 
-                <TableRow>
+                <!-- <TableRow>
                     <TextView
                         android:text="@string/label_Capacity"
                         android:layout_weight="2"
@@ -163,10 +164,10 @@
                     <TextView
                         android:id="@+id/textCapacity"
                         android:text="@string/default_Capacity"
-                        android:gravity="right"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
-                </TableRow>
+                </TableRow> -->
 
                 <TableRow>
                     <TextView
@@ -176,8 +177,8 @@
                         />
                     <TextView
                         android:id="@+id/text_max_charge"
-                        android:text="@string/default_max_charge"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -190,8 +191,8 @@
                         />
                     <TextView
                         android:id="@+id/textAvEner"
-                        android:text="@string/default_AvEner"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -205,8 +206,8 @@
                         />
                     <TextView
                         android:id="@+id/textETF"
-                        android:text="@string/default_ETF"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -219,8 +220,8 @@
                         />
                     <TextView
                         android:id="@+id/textDcPwr"
-                        android:text="@string/default_DcPwr"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -233,8 +234,8 @@
                         />
                     <TextView
                         android:id="@+id/textAmps"
-                        android:text="@string/default_Amps"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -247,8 +248,8 @@
                         />
                     <TextView
                         android:id="@+id/textVolt"
-                        android:text="@string/default_Volt"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -261,8 +262,8 @@
                         />
                     <TextView
                         android:id="@+id/textSOH"
-                        android:text="@string/default_SOH"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -274,8 +275,8 @@
                         />
                     <TextView
                         android:id="@+id/text12V"
-                        android:text="@string/default_12V"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -287,8 +288,8 @@
                         />
                     <TextView
                         android:id="@+id/text12A"
-                        android:text="@string/default_12A"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -300,8 +301,8 @@
                         />
                     <TextView
                         android:id="@+id/textDcLoad"
-                        android:text="@string/default_DcLoad"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -313,8 +314,21 @@
                         />
                     <TextView
                         android:id="@+id/textHKM"
-                        android:text="@string/default_HKM"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
+                        android:layout_weight="1"
+                        />
+                </TableRow>
+
+                <TableRow>
+                    <TextView
+                        android:text="@string/label_EnergyConsumed"
+                        android:layout_weight="2"
+                        />
+                    <TextView
+                        android:id="@+id/textENC"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
@@ -335,17 +349,17 @@
 
                 <TableRow>
                     <TextView
-                        android:id="@+id/LabelKMA"
                         android:text="@string/label_DISTA"
                         android:layout_weight="2"
                         />
                     <TextView
                         android:id="@+id/textKMA"
-                        android:text="@string/default_DISTA"
-                        android:gravity="right"
+                        android:text="@string/default_Dash"
+                        android:gravity="end"
                         android:layout_weight="1"
                         />
                 </TableRow>
+
             </TableLayout>
 
 
@@ -361,8 +375,7 @@
 
             <TableLayout
                 android:layout_width="fill_parent"
-                android:layout_height="wrap_content"
-                android:layout_below="@id/LabelCompTemp">
+                android:layout_height="wrap_content">
 
                 <TableRow
                     android:layout_width="fill_parent"
@@ -370,48 +383,115 @@
 
                     <TextView
                         android:id="@+id/text_comp_1_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
                         android:id="@+id/text_comp_2_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
                         android:id="@+id/text_comp_3_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
                         android:id="@+id/text_comp_4_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
                         android:id="@+id/text_comp_5_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
                         android:id="@+id/text_comp_6_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+                    <TextView
+                        android:id="@+id/text_comp_7_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_comp_8_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_comp_9_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_comp_10_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_comp_11_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_comp_12_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:text="@string/unit_Celsius"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
@@ -421,50 +501,118 @@
                     android:layout_width="fill_parent"
                     android:layout_height="wrap_content">
 
+
                     <TextView
-                        android:id="@+id/text_comp_7_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_1_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
-                        android:id="@+id/text_comp_8_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_2_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
-                        android:id="@+id/text_comp_9_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_3_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
-                        android:id="@+id/text_comp_10_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_4_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
-                        android:id="@+id/text_comp_11_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_5_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
 
                     <TextView
-                        android:id="@+id/text_comp_12_temp"
-                        android:text="@string/default_CompT"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/text_bala_6_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_7_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_8_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_9_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_10_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_11_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:id="@+id/text_bala_12_temp"
+                        android:text="@string/default_Dash"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:padding="3dip"
+                        />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
                         android:layout_height="wrap_content"
                         android:padding="3dip"
                         />
@@ -478,24 +626,26 @@
     </ScrollView>
 
     <!-- debug line -->
-    <TableLayout
-        android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        >
 
-        <TableRow>
-            <TextView
-                android:text="@string/label_debug"
-                android:textColor="#000"
-                />
-            <TextView
-                android:id="@+id/textDebug"
-                android:paddingLeft="8dp"
-                android:text="@string/default_debug"
-                />
-        </TableRow>
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"        >
 
-    </TableLayout>
+        <TextView
+            android:text="@string/label_debug"
+            android:textColor="#000"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
 
-</RelativeLayout>
+            />
+        <TextView
+            android:id="@+id/textDebug"
+            android:text="@string/default_debug"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -28,13 +28,16 @@ import lu.fisch.awt.Color;
 import lu.fisch.awt.Graphics;
 
 import java.lang.reflect.Type;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 
 import lu.fisch.canze.activities.MainActivity;
 import lu.fisch.canze.actors.Field;
 import lu.fisch.canze.actors.Fields;
 import lu.fisch.canze.database.CanzeDataSource;
+import lu.fisch.canze.fragments.MainFragment;
 import lu.fisch.canze.interfaces.DrawSurfaceInterface;
 
 /**
@@ -44,8 +47,8 @@ import lu.fisch.canze.interfaces.DrawSurfaceInterface;
 public class Plotter extends Drawable {
 
     protected ArrayList<Double> values = new ArrayList<>();
-    protected ArrayList<Double> minValues = new ArrayList<>();
-    protected ArrayList<Double> maxValues = new ArrayList<>();
+    //protected ArrayList<Double> minValues = new ArrayList<>();
+    //protected ArrayList<Double> maxValues = new ArrayList<>();
     protected ArrayList<String> sids = new ArrayList<>();
 
     public Plotter() {
@@ -71,8 +74,8 @@ public class Plotter extends Drawable {
     public void setValue(int index, double value)
     {
         values.set(index, value);
-        if(value<minValues.get(index)) minValues.set(index,value);
-        if(value>maxValues.get(index)) maxValues.set(index,value);
+        //if(value<minValues.get(index)) minValues.set(index,value);
+        //if(value>maxValues.get(index)) maxValues.set(index,value);
     }
 
     @Override
@@ -90,6 +93,17 @@ public class Plotter extends Drawable {
         // calculate fill height
         int fillHeight = (int) ((value-min)/(double)(max-min)*(height-1));
         int barWidth = width-Math.max(g.stringWidth(min+""),g.stringWidth(max+""))-10-10;
+        int spaceAlt = Math.max(g.stringWidth(minAlt+""),g.stringWidth(maxAlt+""))+10+10;
+        // reduce with if second y-axe is used
+        if (minAlt==-1 && maxAlt==-1)
+        {
+            spaceAlt=0;
+        }
+        barWidth-=spaceAlt;
+
+        // what is the graph height
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        int graphHeight = height-g.stringHeight(sdf.format(Calendar.getInstance().getTime()))-5;
 
         // draw the ticks
         if(minorTicks>0 || majorTicks>0)
@@ -97,7 +111,7 @@ public class Plotter extends Drawable {
             int toTicks = minorTicks;
             if(toTicks==0) toTicks=majorTicks;
             double accel = (double)height/((max-min)/(double)toTicks);
-            double ax,ay,bx=0,by=0;
+            double ax,ay,bx,by;
             int actual = min;
             int sum = 0;
             for(double i=height; i>=0; i-=accel)
@@ -147,6 +161,17 @@ public class Plotter extends Drawable {
             }
         }
 
+        // draw the horizontal grid
+        /*
+        g.setColor(getIntermediate());
+        long start = Calendar.getInstance().getTimeInMillis()/1000;
+        int interval = 60/timeSale;
+        for(long x=width-(start%interval)-spaceAlt; x>=width-barWidth-spaceAlt; x-=interval)
+        {
+            g.drawLine(x, 1, x, graphHeight + 5);
+        }
+        */
+
         /*
         MainActivity.debug("Values "+values.size());
         MainActivity.debug("Values min "+minValues.size());
@@ -155,6 +180,7 @@ public class Plotter extends Drawable {
         // draw the graph
         g.drawRect(x+width-barWidth, y, barWidth, height);
         // min & max
+        /*
         if(minValues.size()>0)
         {
             double w = (double) barWidth/minValues.size();
@@ -207,11 +233,13 @@ public class Plotter extends Drawable {
                 lastY=my;
             }
         }
+        */
         // values
+        //MainActivity.debug("PLOTTER SIZE: "+values.size());
         if(values.size()>0)
         {
             double w = (double) barWidth/values.size();
-            double h = (double) getHeight()/(getMax()-getMin()+1);
+            double h = (double) getHeight()/(getMax()-getMin());
 
             double lastX = Double.NaN;
             double lastY = Double.NaN;
@@ -219,6 +247,7 @@ public class Plotter extends Drawable {
             for(int i=0; i<values.size(); i++)
             {
                 //MainActivity.debug("Value "+i+": "+values.get(i));
+                //MainActivity.debug("Value "+i+": "+values.get(i)+" Max: "+getMax()+" Min: "+getMin()+" height: "+getHeight()+" h: "+h);
                 double mx = w/2+i*w;
                 double my = getHeight()-(values.get(i)-getMin())*h;
                 int rayon = 2;
@@ -251,9 +280,9 @@ public class Plotter extends Drawable {
     public void onFieldUpdateEvent(Field field) {
         // only take data fofr valid cars
         //MainActivity.debug("Plotter: "+field.getSID()+" --> "+field.getValue());
-        //MainActivity.debug("Car = "+MainActivity.car+" / "+field.getCar());
+        //MainActivity.debug("Car = "+MainActivity.car+" / "+field.getCar()+" / "+field.isCar(MainActivity.car));
 
-        if(field.getCar()==0 || field.getCar()== MainActivity.car) {
+        if(field.isCar(MainActivity.car)) {
             String sid = field.getSID();
 
             //MainActivity.debug("!! Plotter: "+sid+" --> "+field.getValue());
@@ -262,8 +291,8 @@ public class Plotter extends Drawable {
             if (index == -1) {
                 sids.add(sid);
                 values.add(field.getValue());
-                minValues.add(CanzeDataSource.getInstance().getMin(sid));
-                maxValues.add(CanzeDataSource.getInstance().getMax(sid));
+                //minValues.add(CanzeDataSource.getInstance().getMin(sid));
+                //maxValues.add(CanzeDataSource.getInstance().getMax(sid));
 
             } else setValue(index, field.getValue());
             // only repaint if the last field has been updated
@@ -281,14 +310,14 @@ public class Plotter extends Drawable {
         super.loadValuesFromDatabase();
 
         values.clear();
-        maxValues.clear();
-        minValues.clear();
+        //maxValues.clear();
+        //minValues.clear();
 
         for(int s=0; s<sids.size(); s++) {
             String sid = sids.get(s);
             values.add(CanzeDataSource.getInstance().getLast(sid));
-            maxValues.add(CanzeDataSource.getInstance().getMax(sid));
-            minValues.add(CanzeDataSource.getInstance().getMin(sid));
+            //maxValues.add(CanzeDataSource.getInstance().getMax(sid));
+            //minValues.add(CanzeDataSource.getInstance().getMin(sid));
         }
     }
 
@@ -297,8 +326,8 @@ public class Plotter extends Drawable {
         Gson gson = new Gson();
         ArrayList<ArrayList<Double>> data = new ArrayList<>();
         data.add((ArrayList<Double>) values.clone());
-        data.add((ArrayList<Double>) minValues.clone());
-        data.add((ArrayList<Double>) maxValues.clone());
+        //data.add((ArrayList<Double>) minValues.clone());
+        //data.add((ArrayList<Double>) maxValues.clone());
         return gson.toJson(data);
     }
 
@@ -309,8 +338,8 @@ public class Plotter extends Drawable {
 
         ArrayList<ArrayList<Double>> data = gson.fromJson(json, fooType);
         values = data.get(0);
-        minValues=data.get(1);
-        maxValues=data.get(2);
+        //minValues=data.get(1);
+        //maxValues=data.get(2);
     }
 
 

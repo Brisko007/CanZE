@@ -28,8 +28,10 @@ import android.widget.TextView;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
+import lu.fisch.canze.interfaces.DebugListener;
+import lu.fisch.canze.interfaces.FieldListener;
 
-public class ConsumptionActivity extends CanzeActivity {
+public class ConsumptionActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     public static final String SID_MeanEffectiveTorque                  = "186.16"; //EVC
     public static final String SID_TotalPotentialResistiveWheelsTorque  = "1f8.16"; //UBP 10ms
@@ -42,16 +44,19 @@ public class ConsumptionActivity extends CanzeActivity {
     private int driverBrakeWheel_Torque_Request     = 0;
     private int tempTorque                          = 0;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_consumption);
-
+    public void initListeners () {
+        MainActivity.getInstance().setDebugListener(this);
         addField(SID_MeanEffectiveTorque, 0);
         addField(SID_DriverBrakeWheel_Torque_Request, 0);
         addField(SID_Coasting_Torque, 0);
         addField(SID_TotalPotentialResistiveWheelsTorque, 7200);
         addField(SID_Instant_Consumption, 0);
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_consumption);
     }
 
     @Override
@@ -77,7 +82,7 @@ public class ConsumptionActivity extends CanzeActivity {
                 switch (fieldId) {
                     // positive torque
                     case SID_MeanEffectiveTorque:
-                        tempTorque = (int)(field.getValue() * 9.3); // --> translate from motor torque to wheel torque
+                        tempTorque = (int)(field.getValue() * MainActivity.reduction); // --> translate from motor torque to wheel torque
                         pb = (ProgressBar) findViewById(R.id.MeanEffectiveAccTorque);
                         pb.setProgress(tempTorque);
                         if (tempTorque <= 1) break;
@@ -96,7 +101,7 @@ public class ConsumptionActivity extends CanzeActivity {
                         if (tv != null) tv.setText(-tempTorque + " " + field.getUnit());
                         break;
                     case SID_Coasting_Torque:
-                        coasting_Torque = (int)(field.getValue() * 9.3); // it seems this torque is given in motor torque, not in wheel torque. Maybe another adjustment by a factor 05 is needed (two wheels)
+                        coasting_Torque = (int)(field.getValue() * MainActivity.reduction); // torque is given in motor torque, not in wheel torque
                         tempTorque = driverBrakeWheel_Torque_Request + coasting_Torque;
                         pb = (ProgressBar) findViewById(R.id.pb_driver_torque_request);
                         if (pb != null) pb.setProgress(tempTorque);

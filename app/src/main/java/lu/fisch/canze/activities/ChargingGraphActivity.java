@@ -22,16 +22,20 @@
 package lu.fisch.canze.activities;
 
 import android.os.Bundle;
-import android.view.Menu;
 
 import lu.fisch.canze.R;
+import lu.fisch.canze.interfaces.DebugListener;
 
-public class ChargingGraphActivity extends CanzeActivity {
+public class ChargingGraphActivity extends CanzeActivity implements DebugListener {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_charging_graph);
+    }
+
+    protected void initListeners () {
+        MainActivity.getInstance().setDebugListener(this);
     }
 
 }

@@ -24,16 +24,16 @@ package lu.fisch.canze.activities;
 import android.os.Bundle;
 import android.widget.TextView;
 
-import java.util.ArrayList;
+import java.util.Locale;
 
 import lu.fisch.canze.R;
 import lu.fisch.canze.actors.Field;
-import lu.fisch.canze.actors.Fields;
+import lu.fisch.canze.interfaces.DebugListener;
 import lu.fisch.canze.interfaces.FieldListener;
 
 // If you want to monitor changes, you must add a FieldListener to the fields.
 // For the simple activity, the easiest way is to implement it in the actitviy itself.
-public class FluenceKangooTempsActivity extends CanzeActivity implements FieldListener {
+public class FluenceKangooTempsActivity extends CanzeActivity implements FieldListener, DebugListener {
 
     public static final String SID_EvaporatorTemperature                = "42a.30";
     public static final String SID_HVEvaporatorTemperature              = "430.40";
@@ -43,12 +43,10 @@ public class FluenceKangooTempsActivity extends CanzeActivity implements FieldLi
     public static final String SID_ExternalTemperature                  = "534.32";
     public static final String SID_ExternalTemperatureZoe               = "656.48";
     public static final String SID_InternalTemperature                  = "764.6121.8";
+    public static final String SID_InternalTemperatureZoe               = "764.6121.26";
     public static final String SID_MotorWaterPumpSpeed                  = "7ec.623318.24";
     public static final String SID_ChargerWaterPumpSpeed                = "7ec.623319.24";
     public static final String SID_HeatingWaterPumpSpeed                = "7ec.62331a.24";
-    // public static final String SID_BatteryCoolingFansSpeed              = "7bb.6101.335";
-
-    private ArrayList<Field> subscribedFields;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -56,64 +54,24 @@ public class FluenceKangooTempsActivity extends CanzeActivity implements FieldLi
         setContentView(R.layout.activity_fluence_kangoo_temps);
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-
-        // initialise the widgets
-        initListeners();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        removeListeners();
-    }
-
-    private void initListeners() {
-
-        subscribedFields = new ArrayList<>();
-
-        if (MainActivity.car == MainActivity.CAR_ZOE) {
-            addListener(SID_ExternalTemperatureZoe, 10000);
-            addListener(SID_HVEvaporatorTemperature, 10000);
+    protected void initListeners() {
+        MainActivity.getInstance().setDebugListener(this);
+        if (MainActivity.isZOE()) {
+            addField(SID_ExternalTemperatureZoe, 10000);
+            addField(SID_InternalTemperatureZoe, 10000);
+            addField(SID_HVEvaporatorTemperature, 10000);
         } else {
-            addListener(SID_ExternalTemperature, 10000);
+            addField(SID_ExternalTemperature, 10000);
+            addField(SID_InternalTemperature, 10000);
         }
-        addListener(SID_EvaporatorTemperature, 10000);
-        addListener(SID_WaterTemperatureHeating, 10000);
-        addListener(SID_DcDcConverterTemperature, 10000);
-        addListener(SID_InverterTemperature, 10000);
-        addListener(SID_InternalTemperature, 10000);
-        addListener(SID_MotorWaterPumpSpeed, 2000);
-        addListener(SID_ChargerWaterPumpSpeed, 2000);
-        addListener(SID_HeatingWaterPumpSpeed, 2000);
+        addField(SID_EvaporatorTemperature, 10000);
+        addField(SID_WaterTemperatureHeating, 10000);
+        addField(SID_DcDcConverterTemperature, 10000);
+        addField(SID_InverterTemperature, 10000);
+        addField(SID_MotorWaterPumpSpeed, 2000);
+        addField(SID_ChargerWaterPumpSpeed, 2000);
+        addField(SID_HeatingWaterPumpSpeed, 2000);
     }
-
-    private void removeListeners () {
-        // empty the query loop
-        MainActivity.device.clearFields();
-        // free up the listeners again
-        for (Field field : subscribedFields) {
-            field.removeListener(this);
-        }
-        subscribedFields.clear();
-    }
-
-    private void addListener(String sid, int intervalMs) {
-        Field field;
-        field = MainActivity.fields.getBySID(sid);
-        if (field != null) {
-            field.addListener(this);
-            MainActivity.device.addActivityField(field, intervalMs);
-            subscribedFields.add(field);
-        } else {
-            MainActivity.toast("sid " + sid + " does not exist in class Fields");
-        }
-
-    }
-
-
 
     // This is the event fired as soon as this the registered fields are
     // getting updated by the corresponding reader class.
@@ -167,11 +125,8 @@ public class FluenceKangooTempsActivity extends CanzeActivity implements FieldLi
                 }
                 // set regular new content, all exeptions handled above
                 if (tv != null) {
-                    tv.setText("" + (Math.round(field.getValue() * 10.0) / 10.0));
+                    tv.setText(String.format(Locale.getDefault(), "%.1f", field.getValue()));
                 }
-
-                tv = (TextView) findViewById(R.id.textDebug);
-                tv.setText(fieldId);
             }
         });
 
